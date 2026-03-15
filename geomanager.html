@@ -62,18 +62,7 @@ body.theme-light {
   background: var(--warn);
   border-radius: 50%;
   border: 1px solid var(--bg);
-  animation: pulse-badge 1.5s infinite;
 }
-@keyframes pulse-badge {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50%       { transform: scale(1.4); opacity: 0.7; }
-}
-#btnUpdate {
-  opacity: 0.35;
-  transition: opacity 0.3s, color 0.3s;
-}
-#btnUpdate.checked    { opacity: 1; }
-#btnUpdate.has-update { opacity: 1; color: var(--warn); }
 body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; overflow-x: hidden; }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -251,10 +240,16 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
 /* Indicador offline na topbar */
 .tb-offline {
   font-family: var(--mono); font-size: 0.58rem; color: var(--warn);
-  background: rgba(255,184,48,0.1); border: 1px solid rgba(255,184,48,0.2);
+  background: rgba(255,184,48,0.12); border: 1px solid rgba(255,184,48,0.35);
   padding: 3px 10px; border-radius: 20px; display: none;
+  color: var(--warn); font-family: var(--mono); font-size: 0.62rem;
+  animation: pulse-offline 2s infinite;
 }
-.tb-offline.show { display: block; }
+.tb-offline.show { display: flex; align-items: center; gap: 5px; }
+@keyframes pulse-offline {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
 
 .f-label {
   display: block; font-family: var(--mono); font-size: 0.62rem; color: var(--muted);
@@ -1131,12 +1126,12 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
     </div>
 
     <div class="tb-right">
-      <span class="tb-offline" id="tbOffline">● offline</span>
+      <span class="tb-offline" id="tbOffline" title="Sem conexão — alterações serão sincronizadas quando voltar online">⚡ offline</span>
       <button class="btn-new" id="btnNovoprojeto" onclick="openNewProject()" style="display:none;">+ Novo Projeto</button>
       <button class="btn-theme" id="btnAdminUsuarios" onclick="openUsuarios()" title="Gestão de Usuários" style="display:none;">👥</button>
       <button class="btn-theme" id="btnOAuth" onclick="toggleOAuth()" title="Conectar Google Drive para upload" style="font-size:0.7rem;display:none;">☁ Drive</button>
       <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Alternar tema claro/escuro"></button>
-      <button class="btn-theme" id="btnUpdate" onclick="verificarAtualizacao(true)" title="Verificar atualizações">🔔</button>
+      <button class="btn-theme" id="btnUpdate" onclick="verificarAtualizacao(true)" title="Verificar atualizações" style="display:none;">🔔</button>
       <button class="btn-theme" onclick="openHelp()" title="Ajuda / Manual">❓</button>
       <button class="btn-theme" onclick="fazerLogout()" title="Sair da conta" style="color:var(--danger);">⏏</button>
     </div>
@@ -2345,9 +2340,19 @@ async function verificarHtmlUpdate() {
   try {
     const res = await window.electronAPI.htmlCheckUpdate();
     if (res?.atualizado) {
-      const notas = res.notas ? `\n${res.notas}` : '';
-      showToast(`✅ App atualizado para v${res.versao}!${notas} Será aplicado no próximo acesso.`);
+      const notas = res.notas ? ` — ${res.notas}` : '';
       console.log(`[html-update] Atualizado para v${res.versao}`);
+      // Atualiza tooltip do botão
+      const btn = document.getElementById('btnUpdate');
+      if (btn) {
+        btn.classList.remove('btn-update-badge', 'has-update');
+        btn.classList.add('checked');
+        btn.title = `✅ v${res.versao} baixada${notas}\nFeche e abra o app para aplicar`;
+      }
+      // Toast com destaque
+      showToast(`🔄 v${res.versao} baixada!${notas} Feche e reabra para aplicar.`, 6000);
+    } else if (res?.erro) {
+      console.warn('[html-update] Falha:', res.erro);
     }
   } catch(e) {
     console.warn('[html-update] Erro:', e.message);
@@ -2389,9 +2394,9 @@ async function verificarAtualizacao(manual = false) {
       }
     } else {
       if (btn) {
-        btn.classList.remove('btn-update-badge', 'has-update');
-        btn.classList.add('checked');
-        btn.title = `GeoManager v${APP_VERSION} — você está atualizado ✅${notas ? '\nÚltima atualização: ' + notas : ''}`;
+        btn.style.display = '';
+        btn.classList.remove('btn-update-badge');
+        btn.title = `GeoManager v${APP_VERSION} — você está atualizado ✅`;
       }
       if (manual) showToast(`✅ GeoManager v${APP_VERSION} — você está atualizado!`);
     }
@@ -4489,12 +4494,12 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 // TOAST
 // ══════════════════════════════════════
 let toastTimer;
-function showToast(msg) {
+function showToast(msg, duration = 3000) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+  toastTimer = setTimeout(() => t.classList.remove('show'), duration);
 }
 
 // ── Salva com revert automático se falhar ────────────────────────
@@ -4527,6 +4532,10 @@ function saveWithRevert(revertFn, label, projeto) {
       console.warn(`[${label}] falha ao salvar:`, e.message);
       _syncPending = true;
       updateSyncIndicator(true);
+      // Mostra badge offline se não há internet
+      if (!navigator.onLine) {
+        document.getElementById('tbOffline')?.classList.add('show');
+      }
     });
 }
 
@@ -4553,6 +4562,25 @@ function updateSyncIndicator(pending) {
     setTimeout(() => { el.style.opacity = '0'; }, 2000);
   }
 }
+
+// Monitora conexão em tempo real
+window.addEventListener('online',  () => {
+  document.getElementById('tbOffline')?.classList.remove('show');
+  // Tenta sincronizar pendências imediatamente ao voltar online
+  if (_syncPending) {
+    console.log('[sync] Conexão restaurada — sincronizando pendências...');
+    saveData()
+      .then(() => {
+        _syncPending = false;
+        updateSyncIndicator(false);
+      })
+      .catch(() => {});
+  }
+});
+
+window.addEventListener('offline', () => {
+  document.getElementById('tbOffline')?.classList.add('show');
+});
 
 // Tenta reenviar pendências a cada 15 segundos
 setInterval(() => {
