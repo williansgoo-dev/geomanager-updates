@@ -1,0 +1,4581 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoManager</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #090b0f;
+  --surf:    #0f1117;
+  --surf2:   #161920;
+  --surf3:   #1c1f28;
+  --border:  #22262f;
+  --border2: #2c3040;
+  --text:    #e4e8f0;
+  --muted:   #525a6e;
+  --muted2:  #3a4050;
+  --accent:  #00e5a0;
+  --blue:    #0099ff;
+  --warn:    #ffb830;
+  --danger:  #ff4d6d;
+  --purple:  #a78bfa;
+  --mono:    'Space Mono', monospace;
+  --sans:    'Syne', sans-serif;
+}
+
+/* TEMA CLARO */
+body.theme-light {
+  --bg:      #d8dce4;
+  --surf:    #e2e5ec;
+  --surf2:   #cdd1da;
+  --surf3:   #c2c7d2;
+  --border:  #b0b6c2;
+  --border2: #9aa0ae;
+  --text:    #1a1d24;
+  --muted:   #5a6272;
+  --muted2:  #8890a0;
+  --accent:  #00996a;
+  --blue:    #0077cc;
+  --warn:    #c47800;
+  --danger:  #d63050;
+  --purple:  #7c5cdc;
+}
+
+/* THEME TOGGLE BUTTON */
+.btn-theme {
+  background: var(--surf2); border: 1px solid var(--border); border-radius: 7px;
+  padding: 7px 10px; color: var(--text); cursor: pointer; font-size: 1rem;
+  transition: all 0.15s; line-height: 1;
+}
+.btn-theme:hover { border-color: var(--muted); }
+.btn-update-badge {
+  position: relative;
+}
+.btn-update-badge::after {
+  content: '';
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 7px; height: 7px;
+  background: var(--warn);
+  border-radius: 50%;
+  border: 1px solid var(--bg);
+  animation: pulse-badge 1.5s infinite;
+}
+@keyframes pulse-badge {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.4); opacity: 0.7; }
+}
+#btnUpdate {
+  opacity: 0.35;
+  transition: opacity 0.3s, color 0.3s;
+}
+#btnUpdate.checked    { opacity: 1; }
+#btnUpdate.has-update { opacity: 1; color: var(--warn); }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; overflow-x: hidden; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+.screen { display: none; min-height: 100vh; }
+.screen.active { display: flex; }
+
+/* ══ UPLOAD PROGRESS BAR ══ */
+#uploadProgressBar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9998;
+  height: 3px; background: transparent; pointer-events: none;
+  opacity: 0; transition: opacity 0.2s;
+}
+#uploadProgressBar.show { opacity: 1; }
+#uploadProgressFill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--blue));
+  transition: width 0.4s ease;
+  box-shadow: 0 0 8px rgba(0,229,160,0.6);
+}
+#uploadProgressToast {
+  position: fixed; bottom: 28px; right: 24px; left: auto; transform: none;
+  background: var(--surf3); border: 1px solid var(--border2); border-radius: 10px;
+  padding: 12px 18px; font-family: var(--mono); font-size: 0.72rem; color: var(--text);
+  opacity: 0; pointer-events: none; z-index: 9998;
+  transition: all 0.3s; display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4); min-width: 240px;
+  transform: translateY(12px);
+}
+#uploadProgressToast.show { opacity: 1; transform: translateY(0); }
+#uploadProgressToast .upt-spinner {
+  width: 14px; height: 14px; border: 2px solid rgba(0,229,160,0.2);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.6s linear infinite; flex-shrink: 0;
+}
+#uploadProgressToast .upt-text { flex: 1; }
+#uploadProgressToast .upt-count { color: var(--accent); font-weight: 700; }
+
+/* ══ TOAST ══ */
+#toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--surf3); border: 1px solid var(--border2); border-radius: 8px;
+  padding: 10px 20px; font-family: var(--mono); font-size: 0.72rem; color: var(--text);
+  opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 9999; white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ══════════════════════════
+   WELCOME SCREEN
+══════════════════════════ */
+/* ══════════════════════════
+   UPLOAD FLOW BUTTONS
+══════════════════════════ */
+.flow-upload-btn {
+  display: flex; align-items: center; justify-content: center;
+  gap: 5px; margin-top: 7px;
+  background: transparent; border: 1px solid var(--border2);
+  border-radius: 6px; padding: 4px 10px;
+  font-family: var(--mono); font-size: 0.55rem; color: var(--muted);
+  cursor: pointer; transition: all 0.15s; width: 100%;
+}
+.flow-upload-btn:hover {
+  border-color: var(--accent); color: var(--accent);
+  background: rgba(0,229,160,0.05);
+}
+.flow-upload-btn svg { flex-shrink: 0; }
+
+.upload-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  color: var(--muted);
+  font-size: 0.55rem;
+  font-weight: 700;
+  cursor: default;
+  position: relative;
+  flex-shrink: 0;
+}
+.upload-hint:hover .upload-hint-tip {
+  display: block;
+}
+.upload-hint-tip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a2030;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 0.65rem;
+  color: var(--text);
+  white-space: nowrap;
+  z-index: 999;
+  pointer-events: none;
+  line-height: 1.6;
+  font-family: var(--mono);
+}
+
+/* Modal de seleção de subpasta */
+.upload-dest-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.upload-dest-modal.open { opacity: 1; pointer-events: all; }
+.upload-dest-card {
+  background: var(--surf); border: 1px solid var(--border2);
+  border-radius: 14px; padding: 28px; width: 100%; max-width: 380px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+}
+.upload-dest-title {
+  font-family: var(--mono); font-size: 0.65rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 16px;
+}
+.upload-dest-label {
+  font-size: 0.95rem; font-weight: 700; margin-bottom: 20px; color: var(--text);
+}
+.upload-dest-options { display: flex; flex-direction: column; gap: 8px; }
+.upload-dest-opt {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 16px;
+  font-family: var(--mono); font-size: 0.75rem; color: var(--text);
+  cursor: pointer; transition: all 0.15s;
+}
+.upload-dest-opt:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,0.06); }
+.upload-dest-opt .opt-ext {
+  font-size: 0.58rem; color: var(--muted); margin-left: auto;
+}
+.upload-dest-cancel {
+  margin-top: 16px; width: 100%; background: transparent;
+  border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+  font-family: var(--mono); font-size: 0.7rem; color: var(--muted);
+  cursor: pointer; transition: all 0.15s;
+}
+.upload-dest-cancel:hover { border-color: var(--muted); color: var(--text); }
+
+/* Modal painel de usuários */
+.usuarios-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.usuario-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px;
+  font-family: var(--mono); font-size: 0.72rem;
+}
+.usuario-row .u-nome { flex: 1; font-weight: 700; color: var(--text); }
+.usuario-row .u-login { color: var(--muted); font-size: 0.65rem; }
+.usuario-row .u-role {
+  font-size: 0.58rem; padding: 2px 8px; border-radius: 20px;
+  background: rgba(0,153,255,0.12); color: var(--blue); border: 1px solid rgba(0,153,255,0.2);
+}
+.usuario-row .u-role.admin {
+  background: rgba(0,229,160,0.12); color: var(--accent); border-color: rgba(0,229,160,0.2);
+}
+.usuario-row .u-role.master {
+  background: rgba(167,139,250,0.12); color: var(--purple); border-color: rgba(167,139,250,0.2);
+}
+.usuario-row .u-actions { display: flex; gap: 6px; }
+.u-btn {
+  background: var(--surf3); border: 1px solid var(--border2); border-radius: 6px;
+  padding: 4px 8px; font-family: var(--mono); font-size: 0.6rem; color: var(--muted);
+  cursor: pointer; transition: all 0.15s;
+}
+.u-btn:hover { border-color: var(--muted); color: var(--text); }
+.u-btn.danger { border-color: rgba(255,77,77,0.3); color: var(--danger); background: transparent; }
+.u-btn.danger:hover { border-color: var(--danger); color: var(--danger); background: rgba(255,77,77,0.12); }
+
+/* Indicador offline na topbar */
+.tb-offline {
+  font-family: var(--mono); font-size: 0.58rem; color: var(--warn);
+  background: rgba(255,184,48,0.1); border: 1px solid rgba(255,184,48,0.2);
+  padding: 3px 10px; border-radius: 20px; display: none;
+}
+.tb-offline.show { display: block; }
+
+.f-label {
+  display: block; font-family: var(--mono); font-size: 0.62rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px;
+}
+.f-input {
+  width: 100%; background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 16px; color: var(--text);
+  font-family: var(--mono); font-size: 0.85rem; outline: none;
+  transition: border-color 0.2s; margin-bottom: 8px;
+}
+.f-input:focus { border-color: var(--accent); }
+.f-input::placeholder { color: var(--muted); }
+.f-preview {
+  font-family: var(--mono); font-size: 0.65rem; color: var(--accent);
+  margin-bottom: 28px; min-height: 16px; transition: opacity 0.2s;
+}
+.btn-full {
+  width: 100%; background: var(--accent); color: #000; border: none;
+  border-radius: 8px; padding: 14px; font-family: var(--mono); font-size: 0.8rem;
+  font-weight: 700; cursor: pointer; letter-spacing: 0.5px; transition: all 0.2s;
+}
+.btn-full:hover:not(:disabled) { background: #00ffb8; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,229,160,0.3); }
+.btn-full:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ══════════════════════════
+   TOPBAR
+══════════════════════════ */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; height: 58px; background: var(--surf);
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 200;
+  gap: 16px;
+}
+.tb-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.tb-logo {
+  width: 32px; height: 32px; background: var(--accent); border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 0.6rem; font-weight: 700; color: #000; letter-spacing: -0.5px;
+}
+.tb-appname { font-weight: 700; font-size: 1rem; }
+.tb-username { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); }
+.tb-center { flex: 1; max-width: 420px; position: relative; }
+.tb-search {
+  width: 100%; background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 14px 8px 36px; color: var(--text);
+  font-family: var(--mono); font-size: 0.75rem; outline: none; transition: border-color 0.2s;
+}
+.tb-search:focus { border-color: var(--blue); }
+.tb-search::placeholder { color: var(--muted); }
+.tb-search-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--muted); font-size: 0.85rem; pointer-events: none;
+}
+.tb-right { display: flex; align-items: center; gap: 8px; }
+.btn-new {
+  background: var(--accent); color: #000; border: none; border-radius: 7px;
+  padding: 8px 16px; font-family: var(--mono); font-size: 0.7rem; font-weight: 700;
+  cursor: pointer; white-space: nowrap; transition: all 0.2s;
+}
+.btn-new:hover { background: #00ffb8; }
+.btn-settings {
+  background: var(--surf2); border: 1px solid var(--border); border-radius: 7px;
+  width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 1rem; color: var(--muted); transition: all 0.2s;
+}
+.btn-settings:hover { border-color: var(--muted); color: var(--text); }
+
+/* ══════════════════════════
+   MAIN SCREEN
+══════════════════════════ */
+#screenMain { flex-direction: column; }
+.main-wrap { display: flex; flex: 1; overflow: hidden; }
+.main-content { flex: 1; padding: 24px; overflow-y: auto; }
+
+/* FILTERS */
+.filters-bar {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 24px; flex-wrap: wrap;
+}
+.filter-label {
+  font-family: var(--mono); font-size: 0.62rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0;
+}
+.f-select {
+  background: var(--surf2); border: 1px solid var(--border); border-radius: 7px;
+  padding: 7px 12px; color: var(--text); font-family: var(--mono); font-size: 0.7rem;
+  outline: none; cursor: pointer; transition: border-color 0.2s;
+}
+.f-select:focus { border-color: var(--blue); }
+.filter-clear {
+  font-family: var(--mono); font-size: 0.65rem; color: var(--muted);
+  cursor: pointer; padding: 7px 10px; border-radius: 7px; transition: all 0.2s;
+  border: 1px solid transparent;
+}
+.filter-clear:hover { color: var(--danger); border-color: rgba(255,77,109,0.3); }
+
+/* STATS */
+.stats-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--surf); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 18px;
+}
+.stat-val { font-size: 1.6rem; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+.stat-lbl { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+.gc-standalone-card {
+  cursor: pointer; border-color: rgba(0,229,160,0.25);
+  background: rgba(0,229,160,0.04); transition: all 0.18s;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+}
+.gc-standalone-card:hover {
+  border-color: var(--accent); background: rgba(0,229,160,0.10);
+  transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,229,160,0.15);
+}
+
+/* SECTION HEADER */
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
+}
+.section-title { font-size: 1rem; font-weight: 700; }
+.section-count { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+
+/* PROJECT GRID */
+.projects-grid {
+  display: flex; flex-direction: column; gap: 12px;
+}
+.empty-state {
+  text-align: center; padding: 60px 20px;
+  font-family: var(--mono); color: var(--muted); font-size: 0.75rem; line-height: 2;
+}
+.empty-state .big { font-size: 2.5rem; display: block; margin-bottom: 12px; }
+
+/* PROJECT CARD */
+.proj-card {
+  background: var(--surf); border: 1px solid var(--border); border-radius: 12px;
+  transition: border-color 0.2s, box-shadow 0.2s; position: relative;
+}
+.proj-card.expanded { border-color: var(--border2); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+
+.proj-card-header {
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 10px;
+  cursor: pointer; user-select: none; transition: background 0.15s;
+}
+.proj-card-header:hover { background: rgba(255,255,255,0.02); }
+
+.proj-card-chevron { font-size: 0.55rem; color: var(--muted); transition: transform 0.25s; flex-shrink: 0; }
+.proj-card.expanded .proj-card-chevron { transform: rotate(90deg); }
+
+.proj-card-info { flex: 1; min-width: 0; }
+/* TABS */
+.proj-tabs-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
+}
+.proj-tabs {
+  display: flex; gap: 0; background: var(--surf2);
+  border: 1px solid var(--border); border-radius: 8px; padding: 3px;
+}
+.proj-tab {
+  background: none; border: none; border-radius: 6px;
+  padding: 6px 18px; font-family: var(--mono); font-size: 0.68rem;
+  color: var(--muted); cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.proj-tab.active { background: var(--surf3); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+.proj-tab:hover:not(.active) { color: var(--text); }
+.proj-tab-small { font-size: 0.6rem; padding: 6px 12px; opacity: 0.7; }
+.proj-tab-small.active { opacity: 1; }
+.proj-tab-small:hover { opacity: 1; }
+
+.proj-protocol { font-family: var(--mono); font-size: 0.58rem; color: var(--accent); letter-spacing: 1px; margin-bottom: 1px; }
+.proj-name { font-size: 0.88rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.proj-card-meta-inline { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+.proj-meta-pill { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); white-space: nowrap; }
+.proj-meta-pill span { color: var(--text); }
+
+.proj-badge {
+  font-family: var(--mono); font-size: 0.56rem; padding: 3px 8px; border-radius: 4px;
+  white-space: nowrap; flex-shrink: 0; border: 1px solid; cursor: pointer;
+  font-weight: 700;
+}
+.badge-active     { background: var(--warn);              border-color: var(--warn);              color: #000; }
+.badge-finalizado { background: var(--accent);            border-color: var(--accent);            color: #000; }
+.badge-archived   { background: rgba(90,96,112,0.6);      border-color: rgba(90,96,112,0.8);      color: var(--text); }
+
+/* Status dropdown */
+.status-dropdown-wrap { position: relative; flex-shrink: 0; }
+.status-dropdown {
+  display: none; position: absolute; top: calc(100% + 6px); right: 0;
+  background: var(--surf3); border: 1px solid var(--border2); border-radius: 8px;
+  overflow: hidden; z-index: 200; min-width: 130px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5); animation: dropIn 0.15s ease;
+}
+@keyframes dropIn {
+  from { opacity:0; transform: translateY(-4px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+.status-dropdown.open { display: block; }
+.status-opt {
+  display: flex; align-items: center; gap: 8px; padding: 9px 14px;
+  font-family: var(--mono); font-size: 0.65rem; cursor: pointer; transition: background 0.15s;
+}
+.status-opt:hover { background: var(--surf2); }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+.proj-card-actions-inline { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+.btn-action {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--surf2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 9px; font-family: var(--mono); font-size: 0.6rem; color: var(--muted);
+  cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.btn-action:hover        { border-color: var(--blue);   color: var(--blue); }
+.btn-action.green:hover  { border-color: var(--accent);  color: var(--accent); }
+.btn-action.warn:hover   { border-color: var(--warn);    color: var(--warn); }
+.btn-action.danger:hover { border-color: var(--danger);  color: var(--danger); }
+.btn-action.has-obs { border-color: rgba(255,184,48,0.35); color: var(--warn); }
+.btn-action.has-obs:hover { border-color: var(--warn); color: var(--warn); }
+.obs-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,184,48,0.15); border: 1px solid rgba(255,184,48,0.35);
+  color: var(--warn); font-size: 0.55rem; font-family: var(--mono);
+  border-radius: 3px; padding: 0px 4px; min-width: 14px; height: 14px;
+  animation: obs-pulse 2.5s ease-in-out infinite;
+}
+@keyframes obs-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+/* EXPANDED BODY */
+.proj-expand-body { display: none; border-top: 1px solid var(--border); }
+.proj-card.expanded .proj-expand-body { display: block; }
+.proj-expand-inner { display: grid; grid-template-columns: 280px 1fr; }
+.expand-col { padding: 14px 16px; display: flex; flex-direction: column; }
+.expand-col:first-child { border-right: 1px solid var(--border); }
+
+.expand-col-title {
+  font-family: var(--mono); font-size: 0.6rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* FLOW PANEL */
+.flow-panel {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  background: var(--surf2);
+}
+.flow-step {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; min-width: 90px;
+  padding: 8px 14px 7px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surf3); cursor: default; user-select: none;
+  font-family: var(--mono); font-size: 0.6rem; color: var(--muted);
+  transition: all 0.2s; text-align: center; min-height: 78px;
+}
+.flow-step-top { display: flex; align-items: center; gap: 6px; }
+.flow-step-label { font-size: 0.6rem; letter-spacing: 0.3px; }
+.flow-arrow { display: none; }
+.flow-step.yellow {
+  border-color: rgba(255,184,48,0.5);
+  background: rgba(255,184,48,0.08);
+  color: var(--warn);
+}
+.flow-step.green {
+  border-color: rgba(0,229,160,0.5);
+  background: rgba(0,229,160,0.08);
+  color: var(--accent);
+}
+.flow-step.clickable.green {
+  border-color: #00ffb3;
+  background: rgba(0,255,179,0.15);
+  color: #00ffb3;
+  box-shadow: 0 0 10px rgba(0,255,179,0.25), inset 0 0 8px rgba(0,255,179,0.05);
+}
+.flow-step.green .flow-step-sub {
+  color: rgba(0,229,160,0.7);
+}
+.flow-step.clickable.green .flow-step-sub {
+  color: rgba(0,255,179,0.75);
+}
+.flow-step.clickable.yellow .flow-step-sub {
+  color: rgba(255,184,48,0.75);
+}
+.flow-step-sub {
+  font-size: 0.55rem; color: transparent; letter-spacing: 0.5px;
+  transition: color 0.2s; line-height: 1;
+}
+.flow-step.clickable { cursor: pointer; }
+.flow-step.clickable:hover { filter: brightness(1.15); }
+.flow-step.clickable .flow-arrow { display: inline-block; opacity: 0.5; font-size: 0.65rem; margin-left: 3px; transition: transform 0.2s; }
+.flow-step.clickable.green .flow-arrow { transform: rotate(180deg); opacity: 0.7; }
+.flow-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--muted2); flex-shrink: 0; transition: background 0.2s;
+}
+.flow-step.yellow .flow-dot { background: var(--warn); }
+.flow-step.green  .flow-dot { background: var(--accent); }
+.flow-step.clickable.green .flow-dot { background: #00ffb3; }
+
+/* MINI FLOW ROW */
+.mini-flow-row {
+  display: flex; gap: 5px; align-items: center;
+  padding: 5px 16px 7px 32px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surf);
+  flex-wrap: wrap;
+}
+.mini-flow-step {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 7px; border-radius: 5px; border: 1px solid var(--border);
+  background: var(--surf2);
+  font-family: var(--mono); font-size: 0.5rem; color: var(--muted2);
+  white-space: nowrap; transition: all 0.2s; user-select: none;
+}
+.mini-flow-step.yellow {
+  border-color: rgba(255,184,48,0.4);
+  background: rgba(255,184,48,0.07);
+  color: var(--warn);
+}
+.mini-flow-step.green {
+  border-color: rgba(0,229,160,0.4);
+  background: rgba(0,229,160,0.07);
+  color: var(--accent);
+}
+.mini-flow-step.green-vivid {
+  border-color: #00ffb3;
+  background: rgba(0,255,179,0.1);
+  color: #00ffb3;
+}
+.mini-flow-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--muted2); flex-shrink: 0; transition: background 0.2s;
+}
+.mini-flow-step.yellow     .mini-flow-dot { background: var(--warn); }
+.mini-flow-step.green      .mini-flow-dot { background: var(--accent); }
+.mini-flow-step.green-vivid .mini-flow-dot { background: #00ffb3; }
+.proj-card.expanded .mini-flow-row { display: none; }
+
+/* OBS LIST */
+.obs-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px;
+  font-family: var(--mono); font-size: 0.68rem; color: var(--text); line-height: 1.5;
+}
+.obs-item-text { flex: 1; white-space: pre-wrap; word-break: break-word; }
+.obs-item-del {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 0.9rem; padding: 0 2px; flex-shrink: 0; line-height: 1;
+  transition: color 0.15s;
+}
+.obs-item-del:hover { color: var(--danger); }
+
+/* OS INLINE */
+.os-inline-item {
+  display: flex; align-items: center; gap: 7px; padding: 6px 9px;
+  border-radius: 6px; margin-bottom: 5px; background: var(--surf2);
+  border: 1px solid var(--border); transition: all 0.15s;
+}
+.os-inline-item.done {
+  background: rgba(0,229,160,0.08);
+  border-color: rgba(0,229,160,0.3);
+  opacity: 1;
+}
+.os-inline-item.done .os-inline-name { text-decoration: none; color: var(--accent); }
+.os-inline-tag { display: none; }
+.os-inline-item.done .os-inline-tag {
+  display: inline-flex; align-items: center;
+  font-family: var(--mono); font-size: 0.6rem; color: var(--accent);
+  background: rgba(0,229,160,0.15); border: 1px solid rgba(0,229,160,0.3);
+  border-radius: 3px; padding: 1px 6px; white-space: nowrap; flex-shrink: 0;
+}
+.os-inline-cancel-tag { display: none; }
+.os-inline-item.cancelled .os-inline-cancel-tag {
+  display: inline-flex; align-items: center;
+  font-family: var(--mono); font-size: 0.6rem; color: var(--danger);
+  background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.3);
+  border-radius: 3px; padding: 1px 6px; white-space: nowrap; flex-shrink: 0;
+}
+.os-inline-item.cancelled { opacity: 0.6; }
+.os-inline-item.cancelled .os-inline-name { text-decoration: line-through; color: var(--muted); }
+
+.os-btn-remove {
+  width: 18px; height: 18px; border-radius: 4px; border: 1px solid transparent;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; cursor: pointer; flex-shrink: 0; transition: all 0.15s;
+  background: transparent; color: var(--muted2); opacity: 0;
+}
+.os-inline-item:hover .os-btn-remove { opacity: 1; }
+.os-btn-remove:hover { background: rgba(255,77,109,0.15); border-color: var(--danger); color: var(--danger); }
+.os-inline-item.cancelled  { opacity: 0.35; }
+.os-inline-item.cancelled .os-inline-name  { text-decoration: line-through; color: var(--danger); }
+.os-inline-name { font-family: var(--mono); font-size: 0.66rem; flex: 1; }
+
+.os-btn-check, .os-btn-cancel {
+  width: 18px; height: 18px; border-radius: 4px; border: 1px solid;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.58rem; cursor: pointer; flex-shrink: 0; transition: all 0.15s; background: transparent;
+}
+.os-btn-check  { border-color: rgba(0,229,160,0.3); color: var(--accent); }
+.os-btn-check:hover  { background: rgba(0,229,160,0.15); border-color: var(--accent); }
+.os-inline-item.done .os-btn-check { background: var(--accent); border-color: var(--accent); color: #000; }
+.os-btn-cancel { border-color: rgba(255,77,109,0.3); color: var(--danger); }
+.os-btn-cancel:hover { background: rgba(255,77,109,0.15); border-color: var(--danger); }
+.os-inline-item.cancelled .os-btn-cancel { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+.os-inline-empty { font-family: var(--mono); font-size: 0.63rem; color: var(--muted2); padding: 8px 0; }
+.os-inline-add { display: flex; gap: 6px; margin-top: 8px; }
+.os-inline-add input {
+  flex: 1; background: var(--surf2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 9px; color: var(--text); font-family: var(--mono); font-size: 0.66rem;
+  outline: none; transition: border-color 0.2s;
+}
+.os-inline-add input:focus { border-color: var(--accent); }
+.os-inline-add input::placeholder { color: var(--muted); }
+.os-inline-add button {
+  background: var(--surf3); border: 1px solid var(--border2); border-radius: 6px;
+  padding: 5px 10px; font-family: var(--mono); font-size: 0.63rem; color: var(--accent);
+  cursor: pointer; transition: all 0.15s;
+}
+.os-inline-add button:hover { background: rgba(0,229,160,0.1); border-color: var(--accent); }
+
+/* Preset service chips */
+.os-presets {
+  display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px;
+}
+.os-preset-chip {
+  font-family: var(--mono); font-size: 0.58rem; padding: 3px 8px;
+  border-radius: 4px; border: 1px solid var(--border2); background: var(--surf2);
+  color: var(--muted); cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.os-preset-chip:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,0.07); }
+.os-preset-chip.used  { opacity: 1; cursor: default; pointer-events: none; border-color: rgba(0,229,160,0.35); color: var(--accent); background: rgba(0,229,160,0.08); }
+.os-preset-chip.done  { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,0.22); box-shadow: 0 0 6px rgba(0,229,160,0.2); }
+
+/* EXPAND BOTTOM ACTIONS */
+.proj-expand-actions {
+  padding: 8px 16px; border-top: 1px solid var(--border);
+  display: flex; gap: 7px; flex-wrap: wrap; background: rgba(0,0,0,0.12);
+}
+
+/* old OS Modal styles kept for compat */
+.os-item { display:flex; align-items:center; gap:10px; padding:9px 12px; background:var(--surf2); border:1px solid var(--border); border-radius:7px; margin-bottom:8px; transition:background 0.15s, border-color 0.15s; }
+.os-item.done { background:rgba(0,229,160,0.06); border-color:rgba(0,229,160,0.25); opacity:1; }
+.os-item.done .os-name { text-decoration:none; color:var(--accent); }
+.os-check { width:16px; height:16px; border-radius:4px; border:1px solid var(--border2); background:transparent; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.6rem; transition:all 0.15s; }
+.os-item.done .os-check { background:var(--accent); border-color:var(--accent); color:#000; font-weight:700; }
+.os-name { font-family:var(--mono); font-size:0.72rem; flex:1; transition:color 0.15s; }
+.os-remove { font-size:0.65rem; color:var(--muted2); cursor:pointer; padding:2px 4px; border-radius:3px; transition:all 0.15s; }
+.os-remove:hover { color:var(--danger); background:rgba(255,77,109,0.1); }
+.os-add-row { display:flex; gap:8px; margin-top:12px; }
+.os-add-row input { flex:1; }
+.os-add-row button { background:var(--accent); color:#000; border:none; border-radius:7px; padding:8px 14px; font-family:var(--mono); font-size:0.7rem; font-weight:700; cursor:pointer; }
+.os-empty { font-family:var(--mono); font-size:0.68rem; color:var(--muted); text-align:center; padding:20px; }
+
+.proj-meta { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+.proj-meta-item { display:flex; flex-direction:column; gap:2px; }
+.proj-meta-lbl { font-family:var(--mono); font-size:0.56rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; }
+.proj-meta-val { font-family:var(--mono); font-size:0.7rem; color:var(--text); }
+
+@media (max-width: 700px) {
+  .proj-expand-inner { grid-template-columns: 1fr; }
+  .expand-col:first-child { border-right: none; border-bottom: 1px solid var(--border); }
+  .proj-card-meta-inline { display: none; }
+}
+
+/* ══════════════════════════
+   SIDE PANEL (Explorador)
+══════════════════════════ */
+.side-panel {
+  width: 0; background: var(--surf); border-left: 1px solid var(--border);
+  overflow: hidden; transition: width 0.3s ease; display: flex; flex-direction: column;
+  flex-shrink: 0;
+}
+.side-panel.open { width: 380px; }
+
+.side-panel-header {
+  padding: 16px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.side-panel-title { font-size: 0.85rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-panel-close {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 1.1rem; padding: 2px; line-height: 1; transition: color 0.2s; flex-shrink: 0;
+}
+.side-panel-close:hover { color: var(--danger); }
+
+.file-tree { flex: 1; overflow-y: auto; padding: 10px 0; }
+.tree-folder { user-select: none; }
+.tree-folder-row {
+  display: flex; align-items: center; gap: 6px; padding: 6px 18px;
+  cursor: pointer; transition: background 0.15s; font-size: 0.78rem; font-weight: 600;
+}
+.tree-folder-row:hover { background: var(--surf2); }
+.tree-folder-row .arrow {
+  font-size: 0.6rem; color: var(--muted); transition: transform 0.2s; width: 10px;
+}
+.tree-folder-row.open .arrow { transform: rotate(90deg); }
+.tree-folder-row .folder-icon { font-size: 0.9rem; }
+.tree-folder-row .folder-name { font-family: var(--mono); font-size: 0.68rem; color: var(--text); }
+.tree-children { display: none; }
+.tree-children.open { display: block; }
+.tree-file {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 18px 5px 42px; cursor: pointer; transition: background 0.15s;
+}
+.tree-file:hover { background: var(--surf2); }
+.tree-file .file-icon { font-size: 0.8rem; }
+.tree-file .file-name { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+.tree-file:hover .file-name { color: var(--blue); }
+.tree-empty { font-family: var(--mono); font-size: 0.62rem; color: var(--muted2); padding: 4px 18px 4px 42px; }
+
+.folder-open-btn {
+  font-size: 0.65rem; color: var(--muted2); padding: 2px 4px; border-radius: 4px;
+  border: 1px solid transparent; line-height: 1; opacity: 0; transition: all 0.15s; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px;
+}
+.tree-folder-row:hover .folder-open-btn { opacity: 1; color: var(--blue); border-color: rgba(0,153,255,0.3); background: rgba(0,153,255,0.08); }
+.folder-open-btn:hover { background: rgba(0,153,255,0.18) !important; border-color: rgba(0,153,255,0.6) !important; }
+
+.folder-download-btn {
+  color: var(--muted2); padding: 2px 4px; border-radius: 4px;
+  border: 1px solid transparent; line-height: 1; opacity: 0; transition: all 0.15s; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; overflow: hidden;
+}
+.tree-folder-row:hover .folder-download-btn { opacity: 1; color: var(--accent); border-color: rgba(0,229,160,0.3); background: rgba(0,229,160,0.07); }
+.folder-download-btn:hover { background: rgba(0,229,160,0.18) !important; border-color: rgba(0,229,160,0.6) !important; }
+.folder-download-btn.loading { opacity: 1 !important; color: var(--warn) !important; cursor: wait; }
+
+.folder-file-count {
+  font-family: var(--mono); font-size: 0.55rem;
+  background: rgba(99,179,237,0.15); border: 1px solid rgba(99,179,237,0.3);
+  color: var(--blue); border-radius: 3px; padding: 1px 5px;
+  white-space: nowrap; flex-shrink: 0;
+}
+.tree-folder-row.has-files {
+  background: rgba(99,179,237,0.07);
+  border: 1px solid rgba(99,179,237,0.18);
+  border-radius: 6px;
+}
+.tree-folder-row.has-files:hover {
+  background: rgba(99,179,237,0.14);
+}
+.tree-folder-row.has-files .folder-name {
+  color: #90cdf4;
+}
+.tree-folder-row.has-files .folder-icon::before {
+  content: '📂';
+}
+.tree-folder-row.has-files .folder-icon {
+  font-size: 0; /* hide original emoji */
+}
+.tree-folder-row.has-files .folder-icon::before {
+  font-size: 0.9rem;
+}
+
+/* ══════════════════════════
+   MODAL BASE
+══════════════════════════ */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 500; align-items: center; justify-content: center; padding: 20px;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surf); border: 1px solid var(--border); border-radius: 16px;
+  width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.7);
+  animation: modalIn 0.2s ease;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px; border-bottom: 1px solid var(--border);
+}
+.modal-title { font-size: 1.05rem; font-weight: 700; }
+.modal-close {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 1.2rem; padding: 2px; line-height: 1; transition: color 0.2s;
+}
+.modal-close:hover { color: var(--danger); }
+.modal-body { padding: 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+
+/* FORM */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.form-group:last-child { margin-bottom: 0; }
+.form-group label { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.form-group input, .form-group select, .form-group textarea {
+  background: var(--surf2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px; color: var(--text); font-family: var(--mono); font-size: 0.78rem;
+  outline: none; transition: border-color 0.2s; width: 100%;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
+.form-group textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+.proto-preview {
+  background: var(--surf2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px; font-family: var(--mono); font-size: 0.78rem;
+  color: var(--accent); margin-top: -8px; margin-bottom: 14px;
+}
+
+.btn-cancel {
+  background: var(--surf2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 20px; color: var(--muted); font-family: var(--mono); font-size: 0.72rem;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-cancel:hover { border-color: var(--muted); color: var(--text); }
+.btn-confirm {
+  background: var(--accent); color: #000; border: none; border-radius: 8px;
+  padding: 10px 24px; font-family: var(--mono); font-size: 0.72rem; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-confirm:hover { background: #00ffb8; }
+.btn-confirm:disabled { opacity: 0.3; cursor: not-allowed; }
+.btn-danger-confirm {
+  background: var(--danger); color: #fff; border: none; border-radius: 8px;
+  padding: 10px 24px; font-family: var(--mono); font-size: 0.72rem; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+}
+
+/* folder preview in new project modal */
+.folder-preview {
+  background: var(--surf2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 14px; margin-top: 8px; font-family: var(--mono); font-size: 0.65rem;
+  color: var(--muted); line-height: 2;
+}
+.folder-preview .root { color: var(--accent); font-weight: 700; }
+.folder-preview .sub  { color: var(--text); padding-left: 14px; }
+.folder-preview .subsub { color: var(--muted); padding-left: 28px; }
+
+/* observations modal */
+#modalGeoCorretor .modal { max-width: 580px; }
+.gc-section {
+  margin-bottom: 16px; background: var(--surf2);
+  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+}
+.gc-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.2);
+}
+.gc-section-label {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 0.62rem; color: var(--muted);
+}
+.gc-browse-btn {
+  background: var(--surf3); border: 1px solid var(--border2); border-radius: 5px;
+  padding: 3px 9px; font-family: var(--mono); font-size: 0.6rem; color: var(--muted);
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.gc-browse-btn:hover { border-color: var(--blue); color: var(--blue); }
+.gc-file-list { padding: 6px 8px; min-height: 48px; }
+.gc-loading { font-family: var(--mono); font-size: 0.62rem; color: var(--muted2); padding: 10px 6px; }
+.gc-empty {
+  font-family: var(--mono); font-size: 0.62rem; color: var(--muted2);
+  padding: 10px 6px; display: flex; align-items: center; gap: 8px;
+}
+.gc-file-item {
+  display: flex; align-items: center; gap: 8px; padding: 7px 8px;
+  border-radius: 6px; cursor: pointer; transition: all 0.15s;
+  border: 1px solid transparent; margin-bottom: 4px;
+}
+.gc-file-item:hover { background: var(--surf3); border-color: var(--border2); }
+.gc-file-item.selected { background: rgba(0,229,160,0.07); border-color: rgba(0,229,160,0.35); }
+.gc-file-item.selected-ppp { background: rgba(255,184,48,0.07); border-color: rgba(255,184,48,0.35); }
+.gc-file-radio {
+  width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--border2);
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.gc-file-item.selected     .gc-file-radio { border-color: var(--accent); background: var(--accent); }
+.gc-file-item.selected-ppp .gc-file-radio { border-color: var(--warn);   background: var(--warn); }
+.gc-file-radio::after { content:''; width:5px; height:5px; border-radius:50%; background:#000; display:none; }
+.gc-file-item.selected     .gc-file-radio::after,
+.gc-file-item.selected-ppp .gc-file-radio::after { display:block; }
+.gc-file-name { font-family: var(--mono); font-size: 0.68rem; flex: 1; }
+.gc-file-size { font-family: var(--mono); font-size: 0.58rem; color: var(--muted2); }
+
+/* ══════════════════════════
+   SETTINGS MODAL
+══════════════════════════ */
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 0; border-bottom: 1px solid var(--border);
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-row-info h4 { font-size: 0.85rem; font-weight: 600; margin-bottom: 2px; }
+.settings-row-info p  { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); }
+
+/* ══ RESPONSIVE ══ */
+@media (max-width: 700px) {
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .projects-grid { grid-template-columns: 1fr; }
+  .form-row { grid-template-columns: 1fr; }
+  .side-panel.open { width: 100%; position: fixed; inset: 0; top: 58px; z-index: 150; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ TOAST ══ -->
+<!-- UPLOAD PROGRESS -->
+<div id="uploadProgressBar"><div id="uploadProgressFill"></div></div>
+<div id="uploadProgressToast">
+  <div class="upt-spinner"></div>
+  <span class="upt-text">Enviando arquivos...</span>
+  <span class="upt-count" id="uploadProgressCount"></span>
+</div>
+
+<div id="toast"></div>
+
+<!-- ══ TELA DE LOGIN ══ -->
+
+<!-- ══ MODAL: SELEÇÃO DE DESTINO DE UPLOAD ══ -->
+<div class="upload-dest-modal" id="modalUploadDest">
+  <div class="upload-dest-card">
+    <div class="upload-dest-title" style="display:flex;align-items:center;justify-content:space-between;">
+      Enviar arquivo
+      <span id="uploadDestInfo" onclick="toggleExtsInfo()"
+        style="font-size:0.7rem;background:var(--surf2);border:1px solid var(--border);
+        border-radius:50%;width:18px;height:18px;display:flex;align-items:center;
+        justify-content:center;cursor:pointer;color:var(--muted);" title="Formatos aceitos">?</span>
+    </div>
+    <div id="uploadExtsList" style="display:none;font-size:0.68rem;color:var(--muted);
+      font-family:var(--mono);background:var(--surf2);border:1px solid var(--border);
+      border-radius:6px;padding:8px 10px;margin-bottom:8px;line-height:1.8;"></div>
+    <div class="upload-dest-label" id="uploadDestEtapa">Dados Brutos</div>
+    <div class="upload-dest-options" id="uploadDestOpcoes"></div>
+    <button class="upload-dest-cancel" onclick="closeUploadDest()">Cancelar</button>
+  </div>
+</div>
+
+<!-- ══ MODAL: PAINEL DE USUÁRIOS (ADMIN) ══ -->
+<div class="modal-overlay" id="modalUsuarios">
+  <div class="modal-box" style="max-width:520px;padding:24px;overflow-y:auto;max-height:88vh;">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div class="modal-title" style="margin-bottom:0;">👥 Gestão de Usuários</div>
+      <button class="modal-close" onclick="closeModal('modalUsuarios')">✕</button>
+    </div>
+
+    <!-- Card do usuário logado -->
+    <div style="background:var(--surf2);border:1px solid rgba(0,229,160,0.2);border-radius:12px;padding:16px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+        <div style="width:36px;height:36px;border-radius:50%;background:rgba(0,229,160,0.15);border:1px solid rgba(0,229,160,0.3);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">👤</div>
+        <div>
+          <div style="font-weight:700;font-size:0.9rem;" id="masterDisplayName">Administrador</div>
+          <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);" id="masterLoginLabel">login: admin &nbsp;·&nbsp; <span style="color:var(--purple);">master</span></div>
+        </div>
+      </div>
+
+      <!-- Seções exclusivas do master -->
+      <div id="secaoMaster" style="display:none;">
+
+        <!-- Nome de exibição -->
+        <div style="margin-bottom:12px;">
+          <label class="f-label" style="margin-bottom:5px;">✏️ Nome de exibição</label>
+          <div style="display:flex;gap:8px;">
+            <input class="f-input" id="nomeExibicaoInput" placeholder="ex: Willian" style="margin-bottom:0;flex:1;padding:8px 12px;">
+            <button class="btn-confirm" onclick="salvarNomeExibicao()" style="white-space:nowrap;padding:8px 14px;">Salvar</button>
+          </div>
+        </div>
+        <!-- Alterar senha — só admin/master -->
+        <div id="secaoAlterarSenha" style="margin-bottom:12px;">
+          <label class="f-label" style="margin-bottom:5px;">🔑 Alterar senha</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">
+            <input class="f-input" id="senhaAtualInput" type="password" placeholder="Atual" style="margin-bottom:0;padding:8px 10px;" onkeydown="if(event.key==='Enter') alterarMinhaSenha()">
+            <input class="f-input" id="novaSenhaInput" type="password" placeholder="Nova" style="margin-bottom:0;padding:8px 10px;" onkeydown="if(event.key==='Enter') alterarMinhaSenha()">
+            <input class="f-input" id="confirmarSenhaInput" type="password" placeholder="Confirmar" style="margin-bottom:0;padding:8px 10px;" onkeydown="if(event.key==='Enter') alterarMinhaSenha()">
+          </div>
+          <button class="btn-confirm" onclick="alterarMinhaSenha()" style="width:100%;padding:8px;">Alterar Senha</button>
+        </div>
+        <!-- Prazo offline -->
+        <div style="margin-bottom:4px;">
+          <label class="f-label" style="margin-bottom:5px;">⏱ Prazo offline</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input class="f-input" id="prazoOfflineInput" type="number" min="1" max="365" style="width:72px;margin-bottom:0;padding:8px;">
+            <span style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);">dias</span>
+            <button class="btn-confirm" onclick="salvarConfigs()" style="white-space:nowrap;padding:8px 14px;">Salvar</button>
+          </div>
+        </div>
+      </div>
+
+
+    </div>
+
+    <!-- Botão adicionar + lista de usuários -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div class="expand-col-title">Usuários</div>
+      <button class="btn-confirm" style="padding:6px 14px;font-size:0.72rem;display:flex;align-items:center;gap:6px;" onclick="abrirPopupAdicionarUsuario()">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        Adicionar Usuário
+      </button>
+    </div>
+    <div id="usuariosListWrap" class="usuarios-list"></div>
+
+    <div style="margin-top:20px;text-align:right;">
+      <button class="btn-cancel" onclick="closeModal('modalUsuarios')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Popup Adicionar Usuário -->
+<div class="modal-overlay" id="popupAdicionarUsuario">
+  <div class="modal-box" style="max-width:380px;padding:24px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <div class="modal-title" style="margin-bottom:0;">+ Adicionar Usuário</div>
+      <button class="modal-close" onclick="closeModal('popupAdicionarUsuario')">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div>
+        <label class="f-label">Login</label>
+        <input class="f-input" id="novoUsuarioLogin" placeholder="ex: joao.silva" style="margin-bottom:0;">
+      </div>
+      <div>
+        <label class="f-label">Nome</label>
+        <input class="f-input" id="novoUsuarioNome" placeholder="ex: João Silva" style="margin-bottom:0;">
+      </div>
+      <div>
+        <label class="f-label">Senha</label>
+        <input class="f-input" id="novoUsuarioSenha" type="password" placeholder="••••••••" style="margin-bottom:0;">
+      </div>
+      <div>
+        <label class="f-label">Papel</label>
+        <select class="f-select" id="novoUsuarioRole" style="width:100%;">
+          <option value="user">Usuário</option>
+          <option value="admin" id="optAdmin">Admin</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:18px;">
+      <button class="btn-cancel" style="flex:1;" onclick="closeModal('popupAdicionarUsuario')">Cancelar</button>
+      <button class="btn-confirm" style="flex:1;" onclick="adicionarUsuario()">+ Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     WELCOME SCREEN
+══════════════════════════════════ -->
+
+<!-- ══════════════════════════════════
+     MAIN SCREEN
+══════════════════════════════════ -->
+<div id="screenMain" class="screen">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="tb-brand">
+      <div class="tb-logo">GM</div>
+      <div>
+        <div class="tb-appname">GeoManager</div>
+        <div class="tb-username" id="tbUsername"></div>
+      </div>
+    </div>
+
+    <div class="tb-center">
+      <span class="tb-search-icon">🔍</span>
+      <input class="tb-search" id="searchInput" placeholder="Pesquisar projetos..." oninput="renderProjects()">
+    </div>
+
+    <div class="tb-right">
+      <span class="tb-offline" id="tbOffline">● offline</span>
+      <button class="btn-new" id="btnNovoprojeto" onclick="openNewProject()" style="display:none;">+ Novo Projeto</button>
+      <button class="btn-theme" id="btnAdminUsuarios" onclick="openUsuarios()" title="Gestão de Usuários" style="display:none;">👥</button>
+      <button class="btn-theme" id="btnOAuth" onclick="toggleOAuth()" title="Conectar Google Drive para upload" style="font-size:0.7rem;display:none;">☁ Drive</button>
+      <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Alternar tema claro/escuro"></button>
+      <button class="btn-theme" id="btnUpdate" onclick="verificarAtualizacao(true)" title="Verificar atualizações">🔔</button>
+      <button class="btn-theme" onclick="openHelp()" title="Ajuda / Manual">❓</button>
+      <button class="btn-theme" onclick="fazerLogout()" title="Sair da conta" style="color:var(--danger);">⏏</button>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="main-wrap">
+    <!-- CONTENT -->
+    <div class="main-content">
+
+      <!-- STATS -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-val" id="statTotal" style="color:var(--accent)">0</div>
+          <div class="stat-lbl">Total de Projetos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="statYear" style="color:var(--blue)">0</div>
+          <div class="stat-lbl">Este Ano</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="statMonth" style="color:var(--warn)">0</div>
+          <div class="stat-lbl">Este Mês</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="statStates" style="color:var(--purple)">0</div>
+          <div class="stat-lbl">Estados</div>
+        </div>
+        <!-- GeoCorretor avulso — só admin/master -->
+        <div id="gcStandaloneCard" class="stat-card gc-standalone-card" onclick="openGeoCorretorStandalone()" title="Abrir GeoCorretor sem projeto">
+          <div class="stat-val" style="line-height:1; display:flex; justify-content:center; align-items:center; height:36px;">
+            <svg width="36" height="36" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs><linearGradient id="gg3" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#00e5a0"/><stop offset="100%" stop-color="#0099ff"/>
+              </linearGradient></defs>
+              <line x1="14" y1="0" x2="14" y2="28" stroke="url(#gg3)" stroke-width="1.8" stroke-linecap="round"/>
+              <line x1="0" y1="14" x2="28" y2="14" stroke="url(#gg3)" stroke-width="1.8" stroke-linecap="round"/>
+              <circle cx="14" cy="14" r="8" stroke="url(#gg3)" stroke-width="1.8" fill="none"/>
+              <circle cx="14" cy="14" r="2.2" fill="url(#gg3)"/>
+            </svg>
+          </div>
+          <div class="stat-lbl" style="color:var(--accent); font-weight:600;">GeoCorretor</div>
+          <div style="font-family:var(--mono);font-size:0.55rem;color:var(--muted);margin-top:2px;">avulso</div>
+        </div>
+      </div>
+
+      <!-- FILTERS -->
+      <div class="filters-bar">
+        <span class="filter-label">Filtrar:</span>
+        <select class="f-select" id="filterYear" onchange="renderProjects()">
+          <option value="">Todos os anos</option>
+        </select>
+        <select class="f-select" id="filterMonth" onchange="renderProjects()">
+          <option value="">Todos os meses</option>
+        </select>
+        <select class="f-select" id="filterUF" onchange="onFilterUF()">
+          <option value="">Todos os estados</option>
+        </select>
+        <select class="f-select" id="filterCity" onchange="renderProjects()">
+          <option value="">Todos os municípios</option>
+        </select>
+        <span class="filter-clear" onclick="clearFilters()">✕ Limpar filtros</span>
+      </div>
+
+      <!-- PROJECTS TABS -->
+      <div class="proj-tabs-row">
+        <div class="proj-tabs">
+          <button class="proj-tab proj-tab-small" id="tabTodos" onclick="switchTab('todos')">Todos</button>
+          <button class="proj-tab active" id="tabAtivos" onclick="switchTab('ativos')">Projetos Ativos</button>
+          <button class="proj-tab" id="tabConcluidos" onclick="switchTab('concluidos')">Concluídos</button>
+        </div>
+        <div class="section-count" id="projectCount"></div>
+      </div>
+      <div class="projects-grid" id="projectsGrid"></div>
+    </div>
+
+    <!-- SIDE PANEL -->
+    <div class="side-panel" id="sidePanel">
+      <div class="side-panel-header">
+        <div class="side-panel-title" id="sidePanelTitle">Arquivos</div>
+        <button class="side-panel-close" onclick="closeSidePanel()">✕</button>
+      </div>
+      <div class="file-tree" id="fileTree"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL: NOVO PROJETO
+══════════════════════════════════ -->
+<div class="modal-overlay" id="modalNewProject">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Novo Projeto</div>
+      <button class="modal-close" onclick="closeModal('modalNewProject')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Nome do Cliente / Propriedade *</label>
+        <input type="text" id="npName" placeholder="Ex: Fazenda Bela Vista" oninput="updateProtoPreview()">
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0">
+          <label>Estado (UF) *</label>
+          <select id="npUF" onchange="onNpUF()">
+            <option value="">— selecione —</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Município *</label>
+          <select id="npCity" onchange="updateProtoPreview()" disabled>
+            <option value="">— selecione o estado —</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:14px"></div>
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0">
+          <label>Mês *</label>
+          <select id="npMonth" onchange="updateProtoPreview()">
+            <option value="">— selecione —</option>
+            <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+            <option value="03">Março</option><option value="04">Abril</option>
+            <option value="05">Maio</option><option value="06">Junho</option>
+            <option value="07">Julho</option><option value="08">Agosto</option>
+            <option value="09">Setembro</option><option value="10">Outubro</option>
+            <option value="11">Novembro</option><option value="12">Dezembro</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Ano *</label>
+          <input type="number" id="npYear" placeholder="2026" min="2000" max="2099" oninput="updateProtoPreview()">
+        </div>
+      </div>
+      <div style="margin-bottom:14px"></div>
+
+      <!-- Protocol preview -->
+      <div class="form-group">
+        <label>Protocolo gerado</label>
+        <div class="proto-preview" id="protoPreview">— preencha os campos acima —</div>
+      </div>
+
+      <!-- Folder preview -->
+      <div class="form-group">
+        <label>Estrutura de pastas que será criada</label>
+        <div class="folder-preview" id="folderPreview">
+          <div class="root">📁 GeoProjects_<span id="fpUser">...</span></div>
+          <div class="sub">📁 <span id="fpFolder">AAAA_MM_Nome do Cliente</span></div>
+          <div class="subsub">📁 Dados Brutos / GNSS_BASE, GNSS_ROVER, RINEX</div>
+          <div class="subsub">📁 IBGE_PPP</div>
+          <div class="subsub">📁 Levantamento / TXT, TXT_PPP_CORRIGIDO, Aerolevantamento</div>
+          <div class="subsub">📁 CAD_GIS / CAD_PRIMITIVO, CAD_PROJETADO, CAD_ENTREGAS, Shapefile_GPKG, KMZ_KML</div>
+          <div class="subsub">📁 Relatórios / Memoriais, Plantas, TRT_ART_RRT</div>
+          <div class="subsub">📁 Fotos_Registro_Campo</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modalNewProject')">Cancelar</button>
+      <button class="btn-confirm" id="npSubmit" onclick="createProject()" disabled>Criar Projeto</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL: OBSERVAÇÕES
+══════════════════════════════════ -->
+<div class="modal-overlay" id="modalObs">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <div class="modal-title">📝 Observações de Campo</div>
+      <button class="modal-close" onclick="closeModal('modalObs')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-family:var(--mono);font-size:0.62rem;color:var(--muted);margin-bottom:12px;" id="obsProjectName"></div>
+
+      <!-- Lista de observações existentes -->
+      <div id="obsListWrap" style="margin-bottom:16px; display:none;">
+        <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Observações registradas</div>
+        <div id="obsList" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;padding-right:4px;"></div>
+      </div>
+
+      <!-- Nova observação -->
+      <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Nova observação</div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <textarea id="obsText" placeholder="Escreva observações de campo, anotações técnicas, pendências, condições do levantamento..." style="min-height:90px;"></textarea>
+      </div>
+      <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted2);">
+        💾 Acrescenta em: <span id="obsFilePath" style="color:var(--muted);word-break:break-all;"></span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modalObs')">Fechar</button>
+      <button class="btn-confirm" onclick="saveObs()">💾 Salvar Observação</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL: EXCLUIR
+══════════════════════════════════ -->
+<div class="modal-overlay" id="modalDelete">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title" style="color:var(--danger)">⚠️ Excluir Projeto</div>
+      <button class="modal-close" onclick="closeModal('modalDelete')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-family:var(--mono);font-size:0.75rem;line-height:1.8;color:var(--muted)">
+        Tem certeza que deseja excluir o projeto<br>
+        <strong style="color:var(--text)" id="deleteProjectName"></strong>?<br><br>
+        Esta ação remove o registro do GeoManager.
+      </p>
+      <label style="display:flex;align-items:flex-start;gap:10px;margin-top:12px;cursor:pointer;
+             background:rgba(255,77,109,0.06);border:1px solid rgba(255,77,109,0.2);
+             border-radius:8px;padding:12px 14px;">
+        <input type="checkbox" id="deleteAlsoDrive" style="margin-top:2px;accent-color:var(--danger);flex-shrink:0;"
+               onchange="toggleDeleteSenha()">
+        <span style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);line-height:1.6;">
+          Apagar também as pastas e arquivos do Drive<br>
+          <span style="color:var(--danger);font-size:0.6rem;">⚠️ Irreversível — todos os arquivos serão deletados do Drive</span>
+        </span>
+      </label>
+      <div id="deleteSenhaWrap" style="display:none;margin-top:10px;display:none;">
+        <label style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);display:block;margin-bottom:6px;">
+          🔐 Confirme sua senha master para continuar
+        </label>
+        <input class="f-input" type="password" id="deleteSenhaInput" placeholder="Senha master"
+               style="margin-bottom:0;" onkeydown="if(event.key==='Enter') confirmDelete()">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modalDelete')">Cancelar</button>
+      <button class="btn-danger-confirm" onclick="confirmDelete()">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL: CONFIGURAÇÕES
+══════════════════════════════════ -->
+
+<!-- ══════════════════════════════════════
+     MODAL: RESET CONFIRMAÇÃO
+══════════════════════════════════════ -->
+
+<!-- ══════════════════════════════════════
+     MODAL: AVISO PASTA RAIZ
+══════════════════════════════════════ -->
+
+<!-- ══════════════════════════════════════
+     MODAL: NOVO USUÁRIO
+══════════════════════════════════════ -->
+
+<!-- ══════════════════════════════════════
+     MODAL: ORDEM DE SERVIÇO
+══════════════════════════════════════ -->
+<div class="modal-overlay" id="modalOS">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-title">📋 Escopo Contratado</div>
+      <button class="modal-close" onclick="closeModal('modalOS')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-family:var(--mono);font-size:0.62rem;color:var(--muted);margin-bottom:16px;" id="osProjectName"></div>
+      <div id="osItemsList"></div>
+      <div id="osAddRow" class="os-add-row">
+        <input class="form-group input" id="osNewItem" style="margin:0;padding:8px 12px;font-family:var(--mono);font-size:0.75rem;background:var(--surf2);border:1px solid var(--border);border-radius:7px;color:var(--text);outline:none;"
+          placeholder="Ex: Levantamento planialtimétrico, Planta, Volume..."
+          onkeydown="if(event.key==='Enter') addOSItem()">
+        <button onclick="addOSItem()">+ Adicionar</button>
+      </div>
+      <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted2);margin-top:14px;">
+        💾 Salvo em: <span id="osFilePath" style="color:var(--muted)"></span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modalOS')">Fechar</button>
+      <button id="osBtnSalvar" class="btn-confirm" onclick="saveOS()">💾 Salvar Escopo Contratado</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODAL: DUPLICAR PROJETO
+══════════════════════════════════════ -->
+<div class="modal-overlay" id="modalDuplicate">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title">⧉ Duplicar Projeto</div>
+      <button class="modal-close" onclick="closeModal('modalDuplicate')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Origin info -->
+      <div style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:20px;">
+        <div style="font-family:var(--mono);font-size:0.58rem;color:var(--muted);margin-bottom:4px;">PROJETO ORIGINAL</div>
+        <div style="font-family:var(--mono);font-size:0.65rem;color:var(--accent);margin-bottom:2px;" id="dupOriginalProto"></div>
+        <div style="font-size:0.9rem;font-weight:700;" id="dupOriginalName"></div>
+        <div style="font-family:var(--mono);font-size:0.62rem;color:var(--muted);margin-top:4px;" id="dupOriginalMeta"></div>
+      </div>
+
+      <div style="font-family:var(--mono);font-size:0.62rem;color:var(--muted);margin-bottom:16px;line-height:1.7;">
+        Os dados do cliente, estado e município serão copiados.<br>
+        Ajuste o período para o novo projeto:
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0">
+          <label>Mês *</label>
+          <select id="dupMonth">
+            <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+            <option value="03">Março</option><option value="04">Abril</option>
+            <option value="05">Maio</option><option value="06">Junho</option>
+            <option value="07">Julho</option><option value="08">Agosto</option>
+            <option value="09">Setembro</option><option value="10">Outubro</option>
+            <option value="11">Novembro</option><option value="12">Dezembro</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Ano *</label>
+          <input type="number" id="dupYear" min="2000" max="2099">
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <div style="font-family:var(--mono);font-size:0.62rem;color:var(--muted);margin-bottom:6px;">NOVO PROTOCOLO</div>
+        <div class="proto-preview" id="dupProtoPreview">—</div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="font-family:var(--mono);font-size:0.62rem;color:var(--muted);margin-bottom:6px;">NOVA PASTA</div>
+        <div class="proto-preview" style="color:var(--text);font-size:0.72rem;" id="dupFolderPreview">—</div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modalDuplicate')">Cancelar</button>
+      <button class="btn-confirm" id="dupSubmit" onclick="confirmDuplicate()">⧉ Criar Novo Projeto</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODAL: COMPARTILHAR PROJETO
+     ══════════════════════════════════════ -->
+<div class="modal-overlay" id="modalCompartilhar">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title" style="display:flex;align-items:center;gap:8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="7" r="3"/><path d="M2 21v-2a4 4 0 0 1 4-4h4"/><path d="M19 12v3m0 0v3m0-3h3m-3 0h-3" stroke-width="2.2"/></svg>
+        Equipe
+      </div>
+      <button class="modal-close" onclick="closeModal('modalCompartilhar')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:20px;">
+        <div style="font-family:var(--mono);font-size:0.58rem;color:var(--muted);margin-bottom:4px;">PROJETO</div>
+        <div style="font-family:var(--mono);font-size:0.65rem;color:var(--accent);margin-bottom:2px;" id="compProtocol"></div>
+        <div style="font-size:0.9rem;font-weight:700;" id="compName"></div>
+      </div>
+
+      <div style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);margin-bottom:10px;">MEMBROS DA EQUIPE</div>
+      <div id="compUserList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;"></div>
+
+      <button class="btn-confirm" onclick="salvarCompartilhamento()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODAL: ABRIR GEOCORRETOR
+══════════════════════════════════════ -->
+<div class="modal-overlay" id="modalGeoCorretor">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <div class="modal-title" style="display:flex;align-items:center;gap:10px;">
+        <svg width="20" height="20" viewBox="0 0 28 28" fill="none"><defs><linearGradient id="gmt" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#00e5a0"/><stop offset="100%" stop-color="#0099ff"/></linearGradient></defs><line x1="14" y1="0" x2="14" y2="28" stroke="url(#gmt)" stroke-width="1.8" stroke-linecap="round"/><line x1="0" y1="14" x2="28" y2="14" stroke="url(#gmt)" stroke-width="1.8" stroke-linecap="round"/><circle cx="14" cy="14" r="8" stroke="url(#gmt)" stroke-width="1.8" fill="none"/><circle cx="14" cy="14" r="2.2" fill="url(#gmt)"/></svg>
+        Abrir GeoCorretor
+      </div>
+      <button class="modal-close" onclick="closeModal('modalGeoCorretor')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Project info -->
+      <div style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:var(--mono);font-size:0.58rem;color:var(--muted);margin-bottom:2px;">PROJETO</div>
+          <div style="font-family:var(--mono);font-size:0.62rem;color:var(--accent);" id="gc-protocol"></div>
+          <div style="font-size:0.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="gc-name"></div>
+        </div>
+      </div>
+
+      <!-- TXT Files -->
+      <div class="gc-section">
+        <div class="gc-section-header">
+          <div class="gc-section-label">
+            <span class="gc-path-badge input">INPUT</span>
+            Arquivos TXT — Pontos para corrigir
+          </div>
+          <button class="gc-browse-btn" onclick="gcBrowse('txt')" title="Buscar em outro local">🗁 Buscar</button>
+        </div>
+        <div id="gc-txt-list" class="gc-file-list">
+          <div class="gc-loading">Carregando arquivos...</div>
+        </div>
+      </div>
+
+      <!-- PPP Files -->
+      <div class="gc-section">
+        <div class="gc-section-header">
+          <div class="gc-section-label">
+            <span class="gc-path-badge ppp">PPP</span>
+            IBGE PPP — PDF de correção
+          </div>
+          <button class="gc-browse-btn" onclick="gcBrowse('ppp')" title="Buscar em outro local">🗁 Buscar</button>
+        </div>
+        <div id="gc-ppp-list" class="gc-file-list">
+          <div class="gc-loading">Carregando arquivos...</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer" style="justify-content:space-between;">
+      <button class="btn-cancel" onclick="closeModal('modalGeoCorretor')">Cancelar</button>
+      <button class="btn-confirm" id="gc-launch-btn" onclick="launchGeoCorretor()" disabled style="display:flex;align-items:center;gap:8px;justify-content:center;">
+        <svg width="16" height="16" viewBox="0 0 28 28" fill="none"><defs><linearGradient id="glb" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#00e5a0"/><stop offset="100%" stop-color="#0099ff"/></linearGradient></defs><line x1="14" y1="0" x2="14" y2="28" stroke="url(#glb)" stroke-width="2" stroke-linecap="round"/><line x1="0" y1="14" x2="28" y2="14" stroke="url(#glb)" stroke-width="2" stroke-linecap="round"/><circle cx="14" cy="14" r="8" stroke="url(#glb)" stroke-width="2" fill="none"/><circle cx="14" cy="14" r="2.2" fill="url(#glb)"/></svg>
+        Abrir GeoCorretor →
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Variáveis globais — declaradas antes do init() ──
+let userName         = '';
+let userRole         = 'user';
+let userMaster       = false;
+let userNomeExibicao = '';
+let _projetosOcultos  = [];
+let _driveAccountEmail = ''; // email da conta Google conectada (identifica o Drive)
+let userProprietario = false;
+let projects         = [];
+let deleteTargetId   = null;
+let obsTargetId      = null;
+let sidePanelProjectId = null;
+let currentTab       = 'ativos';
+// _allProjectsCache removido — Firebase faz merge automático
+
+// ── Logger condicional: só exibe em desenvolvimento (não compilado) ──
+let _isPackaged = false;
+if (window.electronAPI?.isPackaged) {
+  window.electronAPI.isPackaged().then(v => { _isPackaged = v; init(); });
+} else {
+  init();
+}
+const log = (...args) => {
+  const msg = args.join(' ');
+  if (!_isPackaged) console.log(msg);
+  window.electronAPI?.writeLog('INFO', msg);
+};
+const logE = (...args) => {
+  const msg = args.join(' ');
+  console.error(msg);
+  window.electronAPI?.writeLog('ERROR', msg);
+};
+
+// ══════════════════════════════════════
+// DATA & STATE
+// ══════════════════════════════════════
+// ══════════════════════════════════════
+// GEOCORRETOR SVG ICONS
+// ══════════════════════════════════════
+const GEO_ICON_SVG = `<svg width="18" height="18" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;flex-shrink:0">
+  <defs><linearGradient id="gg1" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+    <stop offset="0%" stop-color="#00e5a0"/><stop offset="100%" stop-color="#0099ff"/>
+  </linearGradient></defs>
+  <line x1="14" y1="0" x2="14" y2="28" stroke="url(#gg1)" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="0" y1="14" x2="28" y2="14" stroke="url(#gg1)" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="14" cy="14" r="8" stroke="url(#gg1)" stroke-width="1.8" fill="none"/>
+  <circle cx="14" cy="14" r="2.2" fill="url(#gg1)"/>
+</svg>`;
+
+const PRESET_SERVICES = [
+  // Levantamentos
+  'Lev. Planialtimétrico',
+  'Lev. Cadastral',
+  'Aerolevantamento',
+  'Georreferenciamento',
+  // Produtos / Documentos
+  'Planta Topográfica',
+  'Planta de Situação',
+  'Planta Baixa',
+  'Memorial Descritivo',
+  'Relatório Técnico',
+  // Serviços Específicos
+  'Locação de Obra',
+  'Perfil Longitudinal',
+  'Seções Transversais',
+  'Cálc. de Volume',
+];
+
+// Retorna o nome a mostrar visualmente — nomeExibicao se preenchido, senão login
+function getUserDisplayName() {
+  return userNomeExibicao || userName;
+}
+
+const now = new Date();
+const CY  = now.getFullYear();
+const CM  = String(now.getMonth() + 1).padStart(2, '0');
+
+// ══════════════════════════════════════
+// IBGE STATES + CITIES DATA
+// ══════════════════════════════════════
+const STATES = [
+  {uf:'AC',name:'Acre',code:'12'},
+  {uf:'AL',name:'Alagoas',code:'27'},
+  {uf:'AP',name:'Amapá',code:'16'},
+  {uf:'AM',name:'Amazonas',code:'13'},
+  {uf:'BA',name:'Bahia',code:'29'},
+  {uf:'CE',name:'Ceará',code:'23'},
+  {uf:'DF',name:'Distrito Federal',code:'53'},
+  {uf:'ES',name:'Espírito Santo',code:'32'},
+  {uf:'GO',name:'Goiás',code:'52'},
+  {uf:'MA',name:'Maranhão',code:'21'},
+  {uf:'MT',name:'Mato Grosso',code:'51'},
+  {uf:'MS',name:'Mato Grosso do Sul',code:'50'},
+  {uf:'MG',name:'Minas Gerais',code:'31'},
+  {uf:'PA',name:'Pará',code:'15'},
+  {uf:'PB',name:'Paraíba',code:'25'},
+  {uf:'PR',name:'Paraná',code:'41'},
+  {uf:'PE',name:'Pernambuco',code:'26'},
+  {uf:'PI',name:'Piauí',code:'22'},
+  {uf:'RJ',name:'Rio de Janeiro',code:'33'},
+  {uf:'RN',name:'Rio Grande do Norte',code:'24'},
+  {uf:'RS',name:'Rio Grande do Sul',code:'43'},
+  {uf:'RO',name:'Rondônia',code:'11'},
+  {uf:'RR',name:'Roraima',code:'14'},
+  {uf:'SC',name:'Santa Catarina',code:'42'},
+  {uf:'SP',name:'São Paulo',code:'35'},
+  {uf:'SE',name:'Sergipe',code:'28'},
+  {uf:'TO',name:'Tocantins',code:'17'},
+];
+
+// Cities embedded (ES full + sample for others — in production fetch from IBGE API)
+const CITIES_BY_UF = {
+  ES: [
+    {name:'Afonso Cláudio',code:'3200102'},{name:'Água Doce do Norte',code:'3200169'},
+    {name:'Águia Branca',code:'3200136'},{name:'Alegre',code:'3200201'},
+    {name:'Alfredo Chaves',code:'3200300'},{name:'Alto Rio Novo',code:'3200359'},
+    {name:'Anchieta',code:'3200409'},{name:'Apiacá',code:'3200508'},
+    {name:'Aracruz',code:'3200607'},{name:'Atílio Vivácqua',code:'3200706'},
+    {name:'Baixo Guandu',code:'3200805'},{name:'Barra de São Francisco',code:'3200904'},
+    {name:'Boa Esperança',code:'3201001'},{name:'Bom Jesus do Norte',code:'3201100'},
+    {name:'Brejetuba',code:'3201159'},{name:'Cachoeiro de Itapemirim',code:'3201209'},
+    {name:'Cariacica',code:'3201308'},{name:'Castelo',code:'3201407'},
+    {name:'Colatina',code:'3201506'},{name:'Conceição da Barra',code:'3201605'},
+    {name:'Conceição do Castelo',code:'3201704'},{name:'Divino de São Lourenço',code:'3201803'},
+    {name:'Domingos Martins',code:'3201902'},{name:'Dores do Rio Preto',code:'3202009'},
+    {name:'Ecoporanga',code:'3202108'},{name:'Fundão',code:'3202207'},
+    {name:'Governador Lindenberg',code:'3202256'},{name:'Guaçuí',code:'3202306'},
+    {name:'Guarapari',code:'3202405'},{name:'Ibatiba',code:'3202454'},
+    {name:'Ibiraçu',code:'3202504'},{name:'Ibitirama',code:'3202553'},
+    {name:'Iconha',code:'3202603'},{name:'Irupi',code:'3202652'},
+    {name:'Itaguaçu',code:'3202702'},{name:'Itapemirim',code:'3202801'},
+    {name:'Itarana',code:'3202900'},{name:'Iúna',code:'3203007'},
+    {name:'Jaguaré',code:'3203056'},{name:'Jerônimo Monteiro',code:'3203106'},
+    {name:'João Neiva',code:'3203130'},{name:'Laranja da Terra',code:'3203163'},
+    {name:'Linhares',code:'3203205'},{name:'Mantenópolis',code:'3203304'},
+    {name:'Marataízes',code:'3203320'},{name:'Marechal Floriano',code:'3203346'},
+    {name:'Marilândia',code:'3203353'},{name:'Mimoso do Sul',code:'3203403'},
+    {name:'Montanha',code:'3203502'},{name:'Mucurici',code:'3203601'},
+    {name:'Muniz Freire',code:'3203700'},{name:'Muqui',code:'3203809'},
+    {name:'Nova Venécia',code:'3203908'},{name:'Pancas',code:'3204005'},
+    {name:'Pedro Canário',code:'3204054'},{name:'Pinheiros',code:'3204104'},
+    {name:'Piúma',code:'3204203'},{name:'Ponto Belo',code:'3204252'},
+    {name:'Presidente Kennedy',code:'3204302'},{name:'Rio Bananal',code:'3204351'},
+    {name:'Rio Novo do Sul',code:'3204401'},{name:'Santa Leopoldina',code:'3204500'},
+    {name:'Santa Maria de Jetibá',code:'3204559'},{name:'Santa Teresa',code:'3204609'},
+    {name:'São Domingos do Norte',code:'3204658'},{name:'São Gabriel da Palha',code:'3204708'},
+    {name:'São José do Calçado',code:'3204807'},{name:'São Mateus',code:'3204906'},
+    {name:'São Roque do Canaã',code:'3204955'},{name:'Serra',code:'3205002'},
+    {name:'Sooretama',code:'3205010'},{name:'Vargem Alta',code:'3205036'},
+    {name:'Venda Nova do Imigrante',code:'3205069'},{name:'Viana',code:'3205101'},
+    {name:'Vila Pavão',code:'3205150'},{name:'Vila Valério',code:'3205176'},
+    {name:'Vila Velha',code:'3205200'},{name:'Vitória',code:'3205309'},
+  ],
+};
+
+// For other states, we'll fetch from IBGE API or show a note
+async function loadCitiesForUF(uf) {
+  if (CITIES_BY_UF[uf]) return CITIES_BY_UF[uf];
+  // Try to use embedded minimal data or show loading
+  return [];
+}
+
+// ══════════════════════════════════════
+// STATUS BADGE
+// ══════════════════════════════════════
+function getBadgeClass(status) {
+  if (status === 'finalizado') return 'badge-finalizado';
+  if (status === 'archived')   return 'badge-archived';
+  return 'badge-active';
+}
+function getStatusLabel(status) {
+  const arrow = ' ▾';
+  if (status === 'finalizado') return 'Finalizado' + arrow;
+  if (status === 'archived')   return 'Arquivado' + arrow;
+  return 'Ativo' + arrow;
+}
+function toggleStatusDropdown(e, id) {
+  e.stopPropagation();
+  // Close all others
+  document.querySelectorAll('.status-dropdown.open').forEach(d => {
+    if (d.id !== `statusDrop-${id}`) d.classList.remove('open');
+  });
+  document.getElementById(`statusDrop-${id}`)?.classList.toggle('open');
+}
+function setStatus(id, status) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  // Atualiza visual IMEDIATAMENTE
+  p.status = status;
+  saveProjectFile(p);
+  if (status === 'finalizado' && currentTab !== 'concluidos') {
+    switchTab('concluidos');
+    showToast(`✅ Projeto movido para "Concluídos"`);
+  } else if (status !== 'finalizado' && currentTab !== 'ativos') {
+    switchTab('ativos');
+    showToast(`✅ Projeto movido para "Projetos Ativos"`);
+  } else {
+    renderProjects();
+    showToast(`✅ Status alterado para "${getStatusLabel(status).replace(' ▾','')}"`);
+  }
+  updateStats();
+  document.querySelectorAll('.status-dropdown').forEach(d => d.classList.remove('open'));
+  // Salva no Drive em background — reverte se falhar
+  saveWithRevert(() => {}, 'setStatus', p);
+}
+// Close dropdowns on outside click
+document.addEventListener('click', () => {
+  document.querySelectorAll('.status-dropdown.open').forEach(d => d.classList.remove('open'));
+});
+
+// ══════════════════════════════════════
+// ORDEM DE SERVIÇO
+// ══════════════════════════════════════
+let osTargetId = null;
+
+function openOS(id) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  osTargetId = id;
+  if (!p.osItems) p.osItems = [];
+  document.getElementById('osProjectName').textContent = `${p.protocol} — ${p.name}`;
+  document.getElementById('osFilePath').textContent = `GeoProjects/${p.folderName}`;
+  document.getElementById('osNewItem').value = '';
+
+  // Mostra/oculta controles de edição conforme role
+  const canEdit = userMaster || userRole === 'admin';
+  const addRow  = document.getElementById('osAddRow');
+  const btnSave = document.getElementById('osBtnSalvar');
+  if (addRow)  addRow.style.display  = canEdit ? '' : 'none';
+  if (btnSave) btnSave.style.display = canEdit ? '' : 'none';
+
+  renderOSItems(p);
+  openModal('modalOS');
+}
+
+function renderOSItems(p) {
+  const container = document.getElementById('osItemsList');
+  if (!p.osItems || p.osItems.length === 0) {
+    container.innerHTML = `<div class="os-empty">Nenhum serviço adicionado ainda.<br>Use o campo abaixo para adicionar.</div>`;
+    return;
+  }
+  const canEdit = userMaster || userRole === 'admin';
+  container.innerHTML = p.osItems.map((item, i) => `
+    <div class="os-item ${item.done ? 'done' : ''}" id="osItem-${i}">
+      <div class="os-check" ${canEdit ? `onclick="toggleOSItem(${i})"` : 'style="cursor:default;opacity:0.5;"'}>${item.done ? '✓' : ''}</div>
+      <span class="os-name">${item.name}</span>
+      ${canEdit ? `<span class="os-remove" onclick="removeOSItem(${i})">✕</span>` : ''}
+    </div>
+  `).join('');
+}
+
+
+function toggleOSItem(idx) {
+  const p = projects.find(x => x.id === osTargetId);
+  if (!p || !p.osItems[idx]) return;
+  // Atualiza visual IMEDIATAMENTE
+  p.osItems[idx].done = !p.osItems[idx].done;
+  renderOSItems(p);
+  // Salva no Drive em background — reverte se falhar
+  saveWithRevert(() => {}, 'toggleOSItem', projects.find(x => x.id === osTargetId));
+}
+
+function addOSItem() {
+  const input = document.getElementById('osNewItem');
+  const val   = input.value.trim();
+  if (!val) return;
+  const p = projects.find(x => x.id === osTargetId);
+  if (!p) return;
+  if (!p.osItems) p.osItems = [];
+  // Atualiza visual IMEDIATAMENTE
+  p.osItems.push({ name: val, done: false });
+  input.value = '';
+  renderOSItems(p);
+  input.focus();
+  // Salva no Drive em background — reverte se falhar
+  saveWithRevert(() => {}, 'addOSItem', projects.find(x => x.id === osTargetId));
+}
+
+function removeOSItem(idx) {
+  const p = projects.find(x => x.id === osTargetId);
+  if (!p) return;
+  // Atualiza visual IMEDIATAMENTE
+  p.osItems.splice(idx, 1);
+  renderOSItems(p);
+  saveWithRevert(() => {}, 'removeOSItem', projects.find(x => x.id === osTargetId));
+}
+
+async function saveOS() {
+  closeModal('modalOS');
+  showToast('💾 Escopo Contratado salvo!');
+}
+
+// ══════════════════════════════════════
+// DUPLICATE PROJECT
+// ══════════════════════════════════════
+let dupSourceId = null;
+
+function openDuplicate(id) {
+  document.querySelectorAll('.status-dropdown').forEach(d => d.classList.remove('open'));
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  dupSourceId = id;
+
+  document.getElementById('dupOriginalProto').textContent = `OS ${p.protocol}`;
+  document.getElementById('dupOriginalName').textContent  = p.name;
+  document.getElementById('dupOriginalMeta').textContent  = `${p.uf} — ${p.city} · ${MONTH_NAMES[parseInt(p.month)]}/${p.year}`;
+
+  // Default to current month/year
+  document.getElementById('dupMonth').value = CM;
+  document.getElementById('dupYear').value  = CY;
+
+  updateDupPreview();
+
+  // Live update on change
+  document.getElementById('dupMonth').onchange = updateDupPreview;
+  document.getElementById('dupYear').oninput   = updateDupPreview;
+
+  openModal('modalDuplicate');
+}
+
+function updateDupPreview() {
+  const p = projects.find(x => x.id === dupSourceId);
+  if (!p) return;
+  const month = document.getElementById('dupMonth').value;
+  const year  = parseInt(document.getElementById('dupYear').value);
+  if (!month || !year || year < 2000) {
+    document.getElementById('dupProtoPreview').textContent = '—';
+    document.getElementById('dupFolderPreview').textContent = '—';
+    document.getElementById('dupSubmit').disabled = true;
+    return;
+  }
+  const cityCode = p.cityCode.slice(-5);
+  const seq      = getNextSeq(year);
+  const proto    = `${year}-${cityCode}-${String(seq).padStart(3,'0')}`;
+  const safeName = p.name.replace(/[/\\:*?"<>|]/g, '').replace(/\s+/g, '_');
+  const folder   = `${year}_${month}_${safeName}`;
+
+  document.getElementById('dupProtoPreview').textContent  = `OS ${proto}`;
+  document.getElementById('dupFolderPreview').textContent = `${getRootBase()}\\${userName}\\${folder}`;
+  document.getElementById('dupSubmit').disabled = false;
+}
+
+function confirmDuplicate() {
+  const src = projects.find(x => x.id === dupSourceId);
+  if (!src) return;
+
+  const month = document.getElementById('dupMonth').value;
+  const year  = parseInt(document.getElementById('dupYear').value);
+  if (!month || !year) return;
+
+  const cityCode  = src.cityCode.slice(-5);
+  const seq       = getNextSeq(year);
+  const protocol  = `${year}-${cityCode}-${String(seq).padStart(3,'0')}`;
+  const safeName  = src.name.replace(/[/\\:*?"<>|]/g, '').replace(/\s+/g, '_');
+  const folderName = `${year}_${month}_${safeName}`;
+
+  const newProject = {
+    id:          Date.now().toString(),
+    name:        src.name,
+    uf:          src.uf,
+    stateName:   src.stateName,
+    city:        src.city,
+    cityCode:    src.cityCode,
+    month, year, protocol, folderName,
+    rootPath:    getProjectRoot(folderName),
+    createdAt:   new Date().toISOString(),
+    observations: '',
+    status:      'active',
+    osItems:     [],
+    flowDone:    {},
+    folders:     buildFolderStructure(),
+    duplicatedFrom: src.protocol,
+  };
+
+  projects.push(newProject);
+  populateYearFilter();
+  updateStats();
+  closeModal('modalDuplicate');
+  createFoldersOnDrive(newProject);
+  switchTab('ativos');
+  showToast(`✅ Projeto duplicado! OS ${protocol} criado para ${src.name}`);
+}
+
+// ══════════════════════════════════════
+// INIT
+// ══════════════════════════════════════
+// ══════════════════════════════════════
+// SESSÃO / LOGIN
+// ══════════════════════════════════════
+
+async function init() {
+  if (window.electronAPI) {
+    absBaseRoot = await window.electronAPI.getDocumentsPath();
+
+    // Listener — Drive desconectou por token inválido
+    if (window.electronAPI.onDriveTokenInvalido) {
+      window.electronAPI.onDriveTokenInvalido(() => {
+        showToast('⚠️ Drive desconectado — token inválido. Reconecte em ☁ Drive.');
+        checkOAuthStatus();
+      });
+    }
+  }
+  applyTheme();
+  showScreen('screenMain');
+
+  // ── Carrega cache local imediatamente para UI responsiva ──
+  const cacheKey = `gm_projects_cache`;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) {
+    try {
+      const { u, r, m, ne, ps } = JSON.parse(cached);
+      // Só usa dados de role/master do cache se for o mesmo usuário da sessão atual
+      const sessaoAtual = await window.electronAPI?.authSessaoLocal?.();
+      const loginAtual = sessaoAtual?.usuario?.login || '';
+      if (u && u === loginAtual) {
+        userName = u; userRole = r || 'user';
+        userMaster = !!m; userNomeExibicao = ne || '';
+        _projetosOcultos = ps || [];
+        projects = JSON.parse(localStorage.getItem(`gm_projects_local_${userName}`) || '[]');
+      }
+      // Não chama initMain aqui — espera loadData corrigir os valores
+    } catch(_) {}
+  }
+
+  // ── Renderiza com cache imediatamente (se mesmo usuário) ──
+  // já preenchido acima — mostra UI sem esperar o Drive
+  initMain();
+  populateYearFilter();
+  renderProjects();
+  updateStats();
+
+  // ── Verifica atualização disponível em background ──
+  if (window.electronAPI?.checkVersion) {
+    window.electronAPI.checkVersion().then(res => {
+      if (res && !res.atualizado && res.versaoNova) {
+        showUpdateBanner(res.versaoAtual, res.versaoNova);
+      }
+    }).catch(() => {});
+  }
+
+  // Verifica atualização do app (.exe) em background
+  setTimeout(() => verificarAtualizacao(false), 3000);
+
+  // Verifica e baixa HTML atualizado em background
+  setTimeout(() => verificarHtmlUpdate(), 5000);
+
+  // ── Atualiza do Firebase em background — substitui silenciosamente ──
+  loadData().then(() => {
+    populateYearFilter();
+    renderProjects();
+    updateStats();
+    // Salva cache atualizado
+    localStorage.setItem(cacheKey, JSON.stringify({
+      u: userName, r: userRole, m: userMaster,
+      ne: userNomeExibicao, ps: _projetosOcultos
+    }));
+    localStorage.setItem(`gm_projects_local_${userName}`, JSON.stringify(projects));
+  }).catch(e => console.warn('[init] loadData falhou:', e));
+}
+
+async function fazerLogout() {
+  if (!confirm('Deseja sair da sua conta?')) return;
+  document.getElementById('tbOffline')?.classList.remove('show');
+  await window.electronAPI?.authLogout?.();
+  // main.js abre a janela de login e fecha esta janela
+}
+
+
+// ══════════════════════════════════════
+// OAUTH — GOOGLE DRIVE
+// ══════════════════════════════════════
+
+async function checkOAuthStatus() {
+  if (!window.electronAPI?.oauthStatus) return;
+  const status = await window.electronAPI.oauthStatus();
+  const btn = document.getElementById('btnOAuth');
+  if (!btn) return;
+  if (status.authorized) {
+    btn.textContent = '☁ Drive ✓';
+    btn.style.color = 'var(--accent)';
+    // Atualiza email da conta conectada e mostra no tooltip
+    if (window.electronAPI?.oauthGetEmail) {
+      const emailRes = await window.electronAPI.oauthGetEmail();
+      _driveAccountEmail = emailRes?.email || '';
+      btn.title = _driveAccountEmail
+        ? `☁ ${_driveAccountEmail} — clique para desconectar`
+        : 'Google Drive conectado — clique para desconectar';
+    } else {
+      btn.title = 'Google Drive conectado — clique para desconectar';
+    }
+
+
+  } else {
+    btn.textContent = '☁ Drive';
+    btn.style.color = 'var(--warn)';
+    btn.title = 'Clique para conectar o Google Drive (necessário para upload)';
+  }
+}
+
+async function toggleOAuth() {
+  if (!window.electronAPI?.oauthStatus) return;
+  const status = await window.electronAPI.oauthStatus();
+  if (status.authorized) {
+    if (!confirm('Desconectar o Google Drive? Os uploads não funcionarão sem conexão.')) return;
+    await window.electronAPI.oauthRevoke();
+    _driveAccountEmail = ''; // limpa email ao desconectar
+    showToast('☁ Google Drive desconectado.');
+  } else {
+    showToast('☁ Abrindo autorização do Google Drive...');
+    const res = await window.electronAPI.oauthAuthorize();
+    if (res.success) {
+      showToast('✅ Google Drive conectado!');
+    } else {
+      showToast('⚠️ Erro ao conectar: ' + (res.error || 'tente novamente'));
+    }
+  }
+  await checkOAuthStatus();
+  // Recarrega projetos com o novo filtro de Drive
+  await loadData();
+  populateYearFilter();
+  renderProjects();
+  updateStats();
+}
+
+// Verifica OAuth antes de fazer upload — pede autorização se necessário
+async function garantirOAuth() {
+  if (!window.electronAPI?.oauthStatus) return true;
+  const status = await window.electronAPI.oauthStatus();
+  if (status.authorized) return true;
+  const confirmar = confirm('Para fazer upload é necessário conectar o Google Drive.\n\nDeseja conectar agora?');
+  if (!confirmar) return false;
+  const res = await window.electronAPI.oauthAuthorize();
+  if (res.success) {
+    showToast('✅ Google Drive conectado!');
+    checkOAuthStatus();
+    return true;
+  }
+  showToast('⚠️ Não foi possível conectar o Google Drive.');
+  return false;
+}
+
+// ══════════════════════════════════════
+// BOTÃO EQUIPE — renderiza HTML do botão de compartilhar no card
+// ══════════════════════════════════════
+function renderEquipeBtn(p) {
+  const hasTeam = p.sharedWith && p.sharedWith.length > 0;
+  const count   = hasTeam ? p.sharedWith.length : 0;
+
+  const baseStyle = hasTeam
+    ? 'display:inline-flex;align-items:center;gap:3px;font-size:0.62rem;cursor:pointer;flex-shrink:0;transition:all 0.15s;padding:2px 6px;border-radius:5px;color:#00e5a0;background:rgba(0,229,160,0.12);border:1px solid rgba(0,229,160,0.3);'
+    : 'display:inline-flex;align-items:center;gap:3px;font-size:0.62rem;color:var(--muted);cursor:pointer;flex-shrink:0;transition:all 0.15s;padding:2px 6px;border-radius:5px;border:1px solid rgba(255,255,255,0.2);';
+
+  const tip = hasTeam ? `Equipe: ${p.sharedWith.join(', ')}` : 'Compartilhar projeto com equipe';
+
+  const badge = hasTeam
+    ? `<span style="font-size:0.58rem;background:#00e5a0;color:#000;border-radius:3px;padding:0 4px;font-weight:700;line-height:1.6;">${count}</span>`
+    : '';
+
+  return `<span onclick="event.stopPropagation();openCompartilhar('${p.id}')"
+    title="${tip}"
+    style="${baseStyle}"
+    onmouseover="this.style.opacity=1;this.style.background='rgba(0,229,160,0.2)';this.style.borderColor='rgba(0,229,160,0.6)';this.style.color='#00e5a0'"
+    onmouseout="this.setAttribute('style','${baseStyle}')">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="8" cy="7" r="3"/>
+      <path d="M2 21v-2a4 4 0 0 1 4-4h4"/>
+      <path d="M19 12v3m0 0v3m0-3h3m-3 0h-3" stroke-width="2.2"/>
+    </svg>
+    Equipe ${badge}
+  </span>`;
+}
+
+// ══════════════════════════════════════
+// COMPARTILHAMENTO DE PROJETOS
+// ══════════════════════════════════════
+
+let compartilharProjetoId = null;
+
+async function openCompartilhar(id) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  compartilharProjetoId = id;
+
+  document.getElementById('compProtocol').textContent = `OS ${p.protocol}`;
+  document.getElementById('compName').textContent     = p.name;
+
+  const res = await window.electronAPI?.authListarUsuarios?.();
+  const lista = res?.usuarios || [];
+  const sharedWith = p.sharedWith || [];
+
+  const container = document.getElementById('compUserList');
+  container.innerHTML = '';
+
+  // Elegíveis: exclui o criador e o master (master sempre vê tudo)
+  // Admins aparecem para todos, mas só o master pode desmarcá-los
+  const elegíveis = lista.filter(u => {
+    if (u.login === p.createdBy) return false;
+    if (u.master) return false; // master sempre vê tudo, não precisa de equipe
+    return true;
+  });
+
+  elegíveis.forEach(u => {
+    const isAdmin    = u.role === 'admin';
+    // Admins: sempre marcados para admin normal (só master pode desmarcar)
+    const checked    = isAdmin ? true : sharedWith.includes(u.login);
+    const disabled   = isAdmin && !userMaster;
+    const cursor     = disabled ? 'default' : 'pointer';
+    const opacity    = disabled ? '0.6' : '1';
+
+    container.innerHTML += `
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;
+        background:var(--surf2);border:1px solid var(--border);border-radius:8px;
+        cursor:${cursor};opacity:${opacity};">
+        <input type="checkbox" value="${u.login}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}
+          style="accent-color:var(--accent);width:15px;height:15px;cursor:${cursor};">
+        <span style="flex:1;">${u.nomeExibicao || u.nome || u.login}</span>
+        <span style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);">${u.login}</span>
+        ${isAdmin ? '<span style="font-size:0.65rem;color:var(--accent2);">admin</span>' : ''}
+      </label>`;
+  });
+
+  if (!container.innerHTML) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;text-align:center;padding:12px;">Nenhum usuário disponível.</div>';
+  }
+
+  openModal('modalCompartilhar');
+}
+
+async function salvarCompartilhamento() {
+  const p = projects.find(x => x.id === compartilharProjetoId);
+  if (!p) return;
+
+  const checkboxes = document.querySelectorAll('#compUserList input[type=checkbox]');
+
+  // Inclui checkboxes marcados (ativos e desabilitados)
+  // Desabilitados = admins que admin normal não pode desmarcar
+  p.sharedWith = Array.from(checkboxes)
+    .filter(cb => cb.checked || cb.disabled)
+    .map(cb => cb.value);
+
+  await saveData();
+  closeModal('modalCompartilhar');
+  renderProjects();
+  showToast('✅ Compartilhamento atualizado!');
+}
+
+// ══════════════════════════════════════
+// GESTÃO DE USUÁRIOS (ADMIN)
+// ══════════════════════════════════════
+
+async function openUsuarios() {
+  await carregarUsuarios();
+
+  // Atualiza header do card com dados do usuário logado
+  const displayName = document.getElementById('masterDisplayName');
+  const loginLabel  = document.getElementById('masterLoginLabel');
+  if (displayName) displayName.textContent = getUserDisplayName() || userName;
+  if (loginLabel) {
+    const roleTag = userMaster ? '<span style="color:var(--purple);">master</span>' : '<span style="color:var(--accent);">admin</span>';
+    loginLabel.innerHTML = `login: ${userName} &nbsp;·&nbsp; ${roleTag}`;
+  }
+
+  // Seções exclusivas do master
+  const secMaster = document.getElementById('secaoMaster');
+  if (secMaster) secMaster.style.display = userMaster ? '' : 'none';
+
+  // Botão Drive — só para master
+  const btnDrive = document.getElementById('btnOAuth');
+  if (btnDrive) btnDrive.style.display = userMaster ? '' : 'none';
+
+
+  openModal('modalUsuarios');
+}
+
+async function carregarUsuarios() {
+  const wrap = document.getElementById('usuariosListWrap');
+  wrap.innerHTML = '<div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);padding:8px;">Carregando...</div>';
+
+  try {
+    const res   = await window.electronAPI.authListarUsuarios();
+    const lista = res.usuarios || [];
+
+    if (lista.length === 0) {
+      wrap.innerHTML = '<div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);padding:8px;">Nenhum usuário cadastrado.</div>';
+      return;
+    }
+
+    wrap.innerHTML = lista.map(u => {
+      // Botões de ação dependem do role de quem está logado
+      let acoes = '';
+      if (u.master) {
+        acoes = '<span style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);">protegido</span>';
+      } else if (userMaster) {
+        // Master pode fazer tudo com qualquer usuário
+        if (u.role === 'admin') {
+          acoes = `
+            <button class="u-btn" onclick="abrirProjetosOcultos('${u.login}')" title="Controlar visibilidade de projetos">📋</button>
+            <button class="u-btn" onclick="alternarRole('${u.login}','user')" title="Rebaixar para usuário">↓ user</button>
+            <button class="u-btn danger" onclick="removerUsuario('${u.login}')" title="Remover acesso">✕</button>
+          `;
+        } else {
+          acoes = `
+            <button class="u-btn" onclick="alternarRole('${u.login}','admin')" title="Promover a admin">↑ admin</button>
+            <button class="u-btn danger" onclick="removerUsuario('${u.login}')" title="Remover acesso">✕</button>
+          `;
+        }
+      } else if (userRole === 'admin') {
+        // Admin só pode gerenciar users comuns
+        if (u.role === 'user') {
+          acoes = `<button class="u-btn danger" onclick="removerUsuario('${u.login}')" title="Remover acesso">✕</button>`;
+        } else {
+          acoes = '';
+        }
+      }
+
+      return `
+        <div class="usuario-row">
+          <div>
+            <div class="u-nome">${u.nomeExibicao || u.nome}</div>
+            <div class="u-login">@${u.login}${u.nomeExibicao ? ` · ${u.nome}` : ''}</div>
+          </div>
+          <span class="u-role ${u.master ? 'master' : u.role}">${u.master ? 'master' : u.role}</span>
+          <div class="u-actions">${acoes}</div>
+        </div>`;
+    }).join('');
+
+    // Atualiza card do master
+    const master = lista.find(u => u.master);
+    if (master) {
+      const el = document.getElementById('masterDisplayName');
+      if (el) el.textContent = master.nomeExibicao || master.nome || 'Administrador';
+      const inp = document.getElementById('nomeExibicaoInput');
+      if (inp) {
+        inp.value = master.nomeExibicao || '';
+        inp.placeholder = master.nome || 'ex: Willian';
+      }
+    }
+
+    // Prazo offline
+    document.getElementById('prazoOfflineInput').value =
+      res.configuracoes?.prazo_offline_dias || 7;
+
+  } catch(e) {
+    wrap.innerHTML = `<div style="font-family:var(--mono);font-size:0.65rem;color:var(--danger);padding:8px;">Erro: ${e.message}</div>`;
+  }
+}
+
+
+// Banner de atualização disponível
+function showUpdateBanner(versaoAtual, versaoNova) {
+  if (document.getElementById('updateBanner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'updateBanner';
+  banner.style.cssText = `
+    position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
+    background: linear-gradient(90deg, rgba(0,229,160,0.15), rgba(0,229,160,0.08));
+    border-bottom: 1px solid rgba(0,229,160,0.3);
+    padding: 8px 16px; display: flex; align-items: center;
+    justify-content: space-between; font-family: var(--mono);
+    font-size: 0.62rem; color: var(--accent);
+  `;
+  banner.innerHTML = `
+    <span>🔔 Nova versão <strong>${versaoNova}</strong> disponível! Você está usando <strong>${versaoAtual}</strong>.</span>
+    <button onclick="document.getElementById('updateBanner').remove()"
+      style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.8rem;padding:0 4px;">✕</button>
+  `;
+  document.body.prepend(banner);
+}
+
+// ── Auto-update do HTML ──────────────────────────────────────────
+async function verificarHtmlUpdate() {
+  if (!window.electronAPI?.htmlCheckUpdate) return;
+  try {
+    const res = await window.electronAPI.htmlCheckUpdate();
+    if (res?.atualizado) {
+      const notas = res.notas ? `\n${res.notas}` : '';
+      showToast(`✅ App atualizado para v${res.versao}!${notas} Será aplicado no próximo acesso.`);
+      console.log(`[html-update] Atualizado para v${res.versao}`);
+    }
+  } catch(e) {
+    console.warn('[html-update] Erro:', e.message);
+  }
+}
+
+// ── Verificação de atualização ───────────────────────────────────
+const APP_VERSION = '1.0.0';
+
+async function verificarAtualizacao(manual = false) {
+  try {
+    const res         = await window.electronAPI.firebaseGetVersao();
+    const versaoAtual = res?.versao_atual || '';
+    const urlDownload = res?.url_download || '';
+    const notas       = res?.notas || '';
+    const btn         = document.getElementById('btnUpdate');
+
+    if (!versaoAtual) {
+      if (manual) showToast('⚠️ Não foi possível verificar atualizações.');
+      return;
+    }
+
+    if (versaoAtual !== APP_VERSION) {
+      if (btn) {
+        btn.classList.add('btn-update-badge', 'has-update', 'checked');
+        btn.classList.remove('checked');
+        btn.title = `🔔 Nova versão ${versaoAtual} disponível${notas ? '\n' + notas : ''}\nClique para ver`;
+      }
+      if (manual) {
+        const ir = confirm(
+          `🔔 Nova versão disponível: ${versaoAtual}\n` +
+          `Versão atual: ${APP_VERSION}\n` +
+          (notas ? `\nO que há de novo:\n${notas}\n` : '') +
+          `\nDeseja abrir a página de download?`
+        );
+        if (ir && urlDownload) window.electronAPI.openExternal(urlDownload);
+      } else {
+        showToast(`🔔 Nova versão ${versaoAtual} disponível! Clique em 🔔 para atualizar.`);
+      }
+    } else {
+      if (btn) {
+        btn.classList.remove('btn-update-badge', 'has-update');
+        btn.classList.add('checked');
+        btn.title = `GeoManager v${APP_VERSION} — você está atualizado ✅${notas ? '\nÚltima atualização: ' + notas : ''}`;
+      }
+      if (manual) showToast(`✅ GeoManager v${APP_VERSION} — você está atualizado!`);
+    }
+  } catch(e) {
+    if (manual) showToast('⚠️ Não foi possível verificar atualizações.');
+  }
+}
+
+async function salvarNomeExibicao() {
+  const nome = document.getElementById('nomeExibicaoInput')?.value.trim();
+  if (nome === undefined) return;
+  const res = await window.electronAPI.authAlterarNomeExibicao(userName, nome);
+  if (res.success) {
+    userNomeExibicao = nome;
+    document.getElementById('tbUsername').textContent = getUserDisplayName();
+
+    // Atualiza createdBy nos projetos existentes do master — uma única escrita no Drive
+    let atualizou = false;
+    projects.forEach(p => {
+      if (p.createdBy === userName || p.createdBy === 'Administrador' || p.createdBy === 'admin') {
+        p.createdBy = nome || userName;
+        atualizou = true;
+      }
+    });
+    if (atualizou) {
+      await saveData();
+      renderProjects(); // atualiza os cards visualmente
+    }
+
+    showToast('✓ Nome de exibição salvo!');
+  } else {
+    showToast('⚠️ ' + res.error);
+  }
+}
+
+// Modal para o master controlar projetos ocultos de um admin
+let _projetosOcultosTargetLogin = null;
+
+async function abrirProjetosOcultos(loginAdmin) {
+  _projetosOcultosTargetLogin = loginAdmin;
+
+  // Busca projetos ocultos atuais do admin
+  const res = await window.electronAPI.authListarUsuarios();
+  const admin = (res.usuarios || []).find(u => u.login === loginAdmin);
+  const ocultos = new Set(admin?.projetosOcultos || []);
+
+  // Monta modal dinâmico
+  const existing = document.getElementById('modalProjetosOcultos');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'modalProjetosOcultos';
+  modal.className = 'modal-overlay open';
+  modal.innerHTML = `
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <div class="modal-title">📋 Projetos visíveis — ${admin?.nomeExibicao || admin?.nome || loginAdmin}</div>
+        <button class="modal-close" onclick="document.getElementById('modalProjetosOcultos').remove()">✕</button>
+      </div>
+      <div class="modal-body" style="max-height:400px;overflow-y:auto;">
+        <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);margin-bottom:14px;">
+          Projetos desmarcados ficam ocultos para este admin.
+        </div>
+        ${projects.map(p => `
+          <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;
+            background:var(--surf2);border:1px solid var(--border);border-radius:8px;
+            cursor:pointer;margin-bottom:6px;">
+            <input type="checkbox" value="${p.id}" ${!ocultos.has(p.id) ? 'checked' : ''}
+              style="accent-color:var(--accent);width:15px;height:15px;">
+            <span style="flex:1;font-size:0.82rem;">${p.name}</span>
+            <span style="font-family:var(--mono);font-size:0.62rem;color:var(--muted);">${p.protocol}</span>
+          </label>`).join('')}
+        ${projects.length === 0 ? '<div style="color:var(--muted);font-size:0.8rem;text-align:center;padding:12px;">Nenhum projeto cadastrado.</div>' : ''}
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="document.getElementById('modalProjetosOcultos').remove()">Cancelar</button>
+        <button class="btn-confirm" onclick="salvarProjetosOcultos()">Salvar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function salvarProjetosOcultos() {
+  const modal = document.getElementById('modalProjetosOcultos');
+  if (!modal || !_projetosOcultosTargetLogin) return;
+
+  const checkboxes = modal.querySelectorAll('input[type=checkbox]');
+  const ocultos = Array.from(checkboxes)
+    .filter(cb => !cb.checked)
+    .map(cb => cb.value);
+
+  const res = await window.electronAPI.authDefinirProjetosOcultosAdmin(_projetosOcultosTargetLogin, ocultos);
+  if (res.success) {
+    showToast('✓ Visibilidade atualizada!');
+    modal.remove();
+  } else {
+    showToast('⚠️ ' + res.error);
+  }
+}
+
+function abrirPopupAdicionarUsuario() {
+  // Limpa campos
+  document.getElementById('novoUsuarioLogin').value = '';
+  document.getElementById('novoUsuarioNome').value  = '';
+  document.getElementById('novoUsuarioSenha').value = '';
+  document.getElementById('novoUsuarioRole').value  = 'user';
+  // Esconde opção Admin para não-master
+  const optAdmin = document.getElementById('optAdmin');
+  if (optAdmin) optAdmin.style.display = userMaster ? '' : 'none';
+  openModal('popupAdicionarUsuario');
+}
+
+async function adicionarUsuario() {
+  const login = document.getElementById('novoUsuarioLogin').value.trim();
+  const nome  = document.getElementById('novoUsuarioNome').value.trim();
+  const senha = document.getElementById('novoUsuarioSenha').value;
+  const role  = document.getElementById('novoUsuarioRole').value;
+
+  if (!login || !nome || !senha) { showToast('⚠️ Preencha todos os campos.'); return; }
+
+  const res = await window.electronAPI.authAdicionarUsuario(login, senha, nome, role, userRole);
+  if (res.success) {
+    showToast('✓ Usuário adicionado com sucesso!');
+    closeModal('popupAdicionarUsuario');
+    await carregarUsuarios();
+  } else {
+    showToast('⚠️ ' + res.error);
+  }
+}
+
+async function removerUsuario(login) {
+  if (!confirm(`Remover acesso de "${login}"? O usuário não conseguirá mais entrar.`)) return;
+  const res = await window.electronAPI.authRemoverUsuario(login);
+  if (res.success) {
+    showToast('✓ Usuário removido.');
+    await carregarUsuarios();
+  } else {
+    showToast('⚠️ ' + res.error);
+  }
+}
+
+async function alternarRole(login, novoRole) {
+  const res = await window.electronAPI.authAlterarRole(login, novoRole);
+  if (res.success) {
+    showToast(`✓ Papel alterado para ${novoRole}.`);
+    await carregarUsuarios();
+  } else {
+    showToast('⚠️ ' + res.error);
+  }
+}
+
+async function salvarConfigs() {
+  const prazo = parseInt(document.getElementById('prazoOfflineInput').value);
+  if (!prazo || prazo < 1) { showToast('⚠️ Prazo inválido.'); return; }
+  const res = await window.electronAPI.authAtualizarConfigs({ prazo_offline_dias: prazo });
+  if (res.success) {
+    showToast('✓ Configurações salvas.');
+  } else {
+    showToast('⚠️ ' + res.error);
+  }
+}
+
+async function alterarMinhaSenha() {
+  const senhaAtual  = document.getElementById('senhaAtualInput').value;
+  const novaSenha   = document.getElementById('novaSenhaInput').value;
+  const confirmar   = document.getElementById('confirmarSenhaInput').value;
+
+  if (!senhaAtual || !novaSenha || !confirmar) { showToast('⚠️ Preencha todos os campos.'); return; }
+  if (novaSenha !== confirmar) { showToast('⚠️ A nova senha e a confirmação não coincidem.'); return; }
+  if (novaSenha.length < 6) { showToast('⚠️ A nova senha deve ter pelo menos 6 caracteres.'); return; }
+
+  const res = await window.electronAPI.authAlterarMinhaSenha(senhaAtual, novaSenha);
+  if (res.success) {
+    showToast('✓ Senha alterada com sucesso!');
+    document.getElementById('senhaAtualInput').value   = '';
+    document.getElementById('novaSenhaInput').value    = '';
+    document.getElementById('confirmarSenhaInput').value = '';
+  } else {
+    showToast('⚠️ ' + res.error);
+  }
+}
+
+// ══════════════════════════════════════
+// UPLOAD DE ARQUIVOS
+// ══════════════════════════════════════
+
+// Mapa de destinos por etapa
+const UPLOAD_DESTINOS = {
+  brutos: [
+    { label: 'GNSS_BASE',  path: ['Dados Brutos','GNSS_BASE'],  exts: null },
+    { label: 'GNSS_ROVER', path: ['Dados Brutos','GNSS_ROVER'], exts: null },
+    { label: 'RINEX',      path: ['Dados Brutos','RINEX'],       exts: ['rnx','obs','22o','23o','24o','25o','nav','zip'] },
+  ],
+  campo: [
+    { label: 'TXT',               path: ['Levantamento','TXT'],               exts: ['txt','csv'] },
+    { label: 'TXT_PPP_CORRIGIDO', path: ['Levantamento','TXT_PPP_CORRIGIDO'], exts: ['txt','csv'] },
+    { label: 'Aerolevantamento',  path: ['Levantamento','Aerolevantamento'],  exts: ['las','laz','tif','tiff','xyz','e57'] },
+  ],
+  ppp: [
+    { label: 'IBGE_PPP', path: ['IBGE_PPP'], exts: ['pdf'], direto: true },
+  ],
+  entregas: [
+    { label: 'CAD_PRIMITIVO',  path: ['CAD_GIS','CAD_PRIMITIVO'],  exts: ['dwg','dxf'] },
+    { label: 'CAD_PROJETADO',  path: ['CAD_GIS','CAD_PROJETADO'],  exts: ['dwg','dxf'] },
+    { label: 'CAD_ENTREGAS',   path: ['CAD_GIS','CAD_ENTREGAS'],   exts: ['dwg','dxf','pdf'] },
+    { label: 'Shapefile_GPKG', path: ['CAD_GIS','Shapefile_GPKG'], exts: ['shp','gpkg','zip','dbf','prj','shx'] },
+    { label: 'KMZ_KML',        path: ['CAD_GIS','KMZ_KML'],        exts: ['kmz','kml'] },
+    { label: 'Memoriais',      path: ['Relatórios','Memoriais'],   exts: ['pdf','docx','doc'] },
+    { label: 'Plantas',        path: ['Relatórios','Plantas'],     exts: ['pdf','dwg'] },
+    { label: 'TRT_ART_RRT',    path: ['Relatórios','TRT_ART_RRT'], exts: ['pdf'] },
+  ],
+};
+
+// Extensões comuns por categoria para o botão "?"
+const EXTS_INFO = {
+  brutos: ['ubx','dat','rtcm','rtcm3','22o','23o','24o','25o','obs','bin','raw','T02','T04','jps','sbf'],
+  campo:  ['txt','csv','xyz','pts','asc'],
+  ppp:    ['pdf'],
+  entregas: ['dwg','dxf','pdf','shp','gpkg','kmz','kml','docx'],
+};
+
+let _uploadCtx = null; // { projectId, etapa }
+
+function abrirUploadDest(projectId, etapa) {
+  const destinos = UPLOAD_DESTINOS[etapa];
+  if (!destinos) return;
+
+  // Se só tem um destino (PPP), vai direto
+  if (destinos.length === 1 && destinos[0].direto) {
+    executarUpload(projectId, destinos[0]);
+    return;
+  }
+
+  _uploadCtx = { projectId, etapa };
+
+  const labels = { brutos: 'Dados Brutos', campo: 'Levantamento em Campo', ppp: 'PPP IBGE', entregas: 'Entregas' };
+  document.getElementById('uploadDestEtapa').textContent = labels[etapa] || etapa;
+
+  const opts = document.getElementById('uploadDestOpcoes');
+  opts.innerHTML = destinos.map((d, i) => `
+    <div class="upload-dest-opt" onclick="selecionarDestino(${i})">
+      <span>📁 ${d.label}</span>
+      <span class="opt-ext">${d.exts ? '.' + d.exts.slice(0,3).join(' .') : 'todos'}</span>
+    </div>
+  `).join('');
+
+  // Preenche lista de extensões para o botão ?
+  const extsInfo = EXTS_INFO[etapa] || [];
+  document.getElementById('uploadExtsList').textContent = 'Formatos comuns: ' + extsInfo.map(e => '.' + e).join('  ');
+  document.getElementById('uploadExtsList').style.display = 'none';
+
+  document.getElementById('modalUploadDest').classList.add('open');
+}
+
+function toggleExtsInfo() {
+  const el = document.getElementById('uploadExtsList');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function selecionarDestinoCustom(idx) {
+  if (!_uploadCtx?.customSubs) return;
+  const ctx = { ..._uploadCtx };
+  closeUploadDest();
+  const sub = ctx.customSubs[idx];
+  const drivePath = [...ctx.customDrivePath, sub.name];
+  const hasChildren = (sub.children || []).filter(c => !c.isFile).length > 0;
+  // Chama upload direto para a subpasta selecionada
+  uploadParaPasta({ stopPropagation: () => {} }, JSON.stringify(drivePath), sub.name, ctx.projectId, hasChildren);
+}
+
+function selecionarDestino(idx) {
+  if (!_uploadCtx) return;
+  const ctx = { ..._uploadCtx }; // copia antes de limpar
+  closeUploadDest();
+  const destino = UPLOAD_DESTINOS[ctx.etapa][idx];
+  executarUpload(ctx.projectId, destino);
+}
+
+function closeUploadDest() {
+  document.getElementById('modalUploadDest').classList.remove('open');
+  _uploadCtx = null;
+}
+
+// ══════════════════════════════════════
+// BARRA DE PROGRESSO DE UPLOAD
+// ══════════════════════════════════════
+let _uploadProgressTimer = null;
+
+function showUploadProgress(msg) {
+  const bar   = document.getElementById('uploadProgressBar');
+  const fill  = document.getElementById('uploadProgressFill');
+  const toast = document.getElementById('uploadProgressToast');
+  const text  = toast?.querySelector('.upt-text');
+  const count = document.getElementById('uploadProgressCount');
+
+  if (text)  text.textContent  = msg || 'Enviando arquivos...';
+  if (count) count.textContent = '';
+
+  // Anima a barra até ~85% enquanto aguarda
+  fill.style.transition = 'none';
+  fill.style.width = '0%';
+  bar.classList.add('show');
+  toast.classList.add('show');
+
+  clearTimeout(_uploadProgressTimer);
+  // Aguarda 1 frame e inicia animação
+  requestAnimationFrame(() => {
+    fill.style.transition = 'width 8s cubic-bezier(0.1,0.5,0.4,1)';
+    fill.style.width = '85%';
+  });
+}
+
+function updateUploadProgress(msg, countText) {
+  const toast = document.getElementById('uploadProgressToast');
+  const text  = toast?.querySelector('.upt-text');
+  const count = document.getElementById('uploadProgressCount');
+  if (text)  text.textContent  = msg || '';
+  if (count) count.textContent = countText || '';
+}
+
+function hideUploadProgress(success) {
+  const bar   = document.getElementById('uploadProgressBar');
+  const fill  = document.getElementById('uploadProgressFill');
+  const toast = document.getElementById('uploadProgressToast');
+
+  // Completa a barra até 100%
+  fill.style.transition = 'width 0.3s ease';
+  fill.style.width = success ? '100%' : '30%';
+
+  _uploadProgressTimer = setTimeout(() => {
+    bar.classList.remove('show');
+    toast.classList.remove('show');
+    fill.style.transition = 'none';
+    fill.style.width = '0%';
+  }, success ? 900 : 600);
+}
+
+async function executarUpload(projectId, destino) {
+  const p = projects.find(x => x.id === projectId);
+  if (!p) return;
+
+  if (!await garantirOAuth()) return;
+
+  // Caminho no Drive: GeoProjects / folderName / ...subpastas
+  const folderPath = ['GeoProjects', p.folderName, ...destino.path];
+
+  showUploadProgress(`Preparando envio para ${destino.label}...`);
+
+  // Abre dialog e já faz upload direto para o Drive (passa driveAccountId para buscar token correto)
+  const res = await window.electronAPI.uploadFilesDialog(folderPath, destino.exts, p.driveAccountId || '');
+  if (res.canceled) { hideUploadProgress(false); return; }
+
+  const total   = (res.results || []).length;
+  const sucesso = (res.results || []).filter(r => r.success).length;
+  const falhou  = (res.results || []).filter(r => !r.success).length;
+
+  updateUploadProgress(`Enviando para ${destino.label}...`, `${sucesso}/${total}`);
+  hideUploadProgress(sucesso > 0);
+
+  if (sucesso > 0) {
+    showToast(`✓ ${sucesso} arquivo${sucesso > 1 ? 's' : ''} enviado${sucesso > 1 ? 's' : ''} para ${destino.label}`);
+    await refreshFileCounts(projectId);
+    await refreshFlowPanel(projectId);
+  }
+  if (falhou > 0) showToast(`⚠️ ${falhou} arquivo${falhou > 1 ? 's' : ''} falharam no envio.`);
+}
+
+
+
+function applyTheme() {
+  const isDark = localStorage.getItem('gm_theme') !== 'light';
+  document.body.classList.toggle('theme-light', !isDark);
+  const btn = document.getElementById('btnTheme');
+  if (btn) btn.textContent = isDark ? '☀️' : '🌑';
+}
+
+function toggleTheme() {
+  const isLight = document.body.classList.contains('theme-light');
+  localStorage.setItem('gm_theme', isLight ? 'dark' : 'light');
+  applyTheme();
+}
+
+function openHelp() {
+  if (window.electronAPI?.openExternal) {
+    window.electronAPI.openExternal('manual-geomanager.html').then(res => {
+      if (res && !res.success) showToast('⚠️ Manual não encontrado');
+    });
+  } else {
+    window.open('manual-geomanager.html', '_blank');
+  }
+}
+
+let customRootPath = ''; // override base path (absolute), empty = use default
+let absBaseRoot    = ''; // resolved absolute base: Documentos\GeoManager (set on init)
+
+// Carrega projetos do Drive — filtra por visibilidade do usuário logado
+async function loadData() {
+  try {
+    // Usa sessão local — main.js já validou contra o Drive no boot,
+    // session.json está atualizado. Evita roundtrip redundante ao Drive.
+    if (window.electronAPI?.authSessaoLocal) {
+      const sessao = await window.electronAPI.authSessaoLocal();
+      if (sessao?.usuario) {
+        userName         = sessao.usuario.login;
+        userRole         = sessao.usuario.role;
+        userMaster       = !!sessao.usuario.master;
+        userNomeExibicao = sessao.usuario.nomeExibicao || '';
+        _projetosOcultos = sessao.usuario.projetosOcultos || [];
+      }
+    }
+    if (!userName) userName = localStorage.getItem('gm_user') || '';
+
+    // Obtém email da conta Drive conectada
+    if (window.electronAPI?.oauthGetEmail) {
+      const emailRes = await window.electronAPI.oauthGetEmail();
+      _driveAccountEmail = emailRes?.email || '';
+    }
+
+    if (window.electronAPI?.driveLoadProjects) {
+      const res = await window.electronAPI.driveLoadProjects();
+      const todos = res.projects || [];
+      // Filtra por Drive conectado — cada Drive vê só seus projetos
+      // Master sem Drive conectado vê todos
+      const filterByDrive = (list) => {
+        if (!_driveAccountEmail) return list; // sem Drive — master vê tudo
+        return list.filter(p =>
+          !p.driveAccountId || p.driveAccountId === _driveAccountEmail
+        );
+      };
+
+      if (userMaster) {
+        projects = filterByDrive(todos);
+      } else if (userRole === 'admin') {
+        projects = filterByDrive(todos).filter(p => !_projetosOcultos.includes(p.id));
+      } else {
+        projects = filterByDrive(todos).filter(p =>
+          p.createdBy === userName ||
+          (p.sharedWith || []).includes(userName)
+        );
+      }
+    } else {
+      const perUser = localStorage.getItem(`gm_projects_${userName}`);
+      projects = JSON.parse(perUser || localStorage.getItem('gm_projects') || '[]');
+    }
+  } catch(e) {
+    console.warn('[loadData] erro:', e);
+    userName = ''; projects = [];
+  }
+}
+
+// Salva TODOS os projetos no Drive (merge com os que o usuário não vê)
+async function saveData() {
+  // Salva sempre no localStorage como buffer local imediato
+  localStorage.setItem('gm_projects_local_' + userName, JSON.stringify(projects));
+
+  if (!window.electronAPI?.driveSaveProjects) {
+    localStorage.setItem('gm_projects', JSON.stringify(projects));
+    return;
+  }
+
+  // Salva lista completa no Firebase (com merge automático no backend)
+  await window.electronAPI.driveSaveProjects(projects);
+}
+
+// Salva um único projeto no Firebase (mais eficiente para ações individuais)
+async function saveProjetoIndividual(projeto) {
+  localStorage.setItem('gm_projects_local_' + userName, JSON.stringify(projects));
+  if (!window.electronAPI?.firebaseSaveProjeto) return;
+  await window.electronAPI.firebaseSaveProjeto(projeto);
+}
+
+// Retorna a pasta base absoluta onde ficam as subpastas de cada usuário
+// Ex: C:\Users\WILL\Documents\GeoManager
+function getRootBase() {
+  return customRootPath || absBaseRoot || `GeoProjects_${userName}`;
+}
+
+// Retorna o rootPath absoluto de um projeto
+// Ex: C:\Users\WILL\Documents\GeoManager\WILL\2026_02_VIANAMADEIRAS
+function getProjectRoot(folderName) {
+  const base = getRootBase();
+  // Se a pasta raiz já termina com o nome do usuário, não adiciona de novo
+  const endsWithUser = base.toLowerCase().endsWith('\\' + userName.toLowerCase()) ||
+                       base.toLowerCase() === userName.toLowerCase();
+  return endsWithUser ? [base, folderName].join('\\') : [base, userName, folderName].join('\\');
+}
+
+// Junta segmentos de caminho sempre com backslash
+function joinPath(...parts) {
+  return parts.join('\\');
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ══════════════════════════════════════
+// WELCOME
+// ══════════════════════════════════════
+// ══════════════════════════════════════
+// MAIN INIT
+// ══════════════════════════════════════
+function initMain() {
+  document.getElementById('tbUsername').textContent = getUserDisplayName();
+
+  // Verifica sessão salva para mostrar botões de admin
+  if (window.electronAPI?.authSessaoLocal) {
+    window.electronAPI.authSessaoLocal().then(resultado => {
+      if (resultado?.usuario) {
+        const u = resultado.usuario;
+        const isAdminOrMaster = u.role === 'admin' || u.master;
+
+        // Botão gestão de usuários — só admin/master
+        const btnAdmin = document.getElementById('btnAdminUsuarios');
+        if (btnAdmin) btnAdmin.style.display = isAdminOrMaster ? 'flex' : 'none';
+
+        // Botão Drive — só master
+        const btnDrive = document.getElementById('btnOAuth');
+        if (btnDrive) btnDrive.style.display = u.master ? '' : 'none';
+
+        // Botão Novo Projeto — só admin/master
+        const btnNovo = document.getElementById('btnNovoprojeto');
+        if (btnNovo) btnNovo.style.display = isAdminOrMaster ? '' : 'none';
+
+        // GeoCorretor avulso — só admin/master
+        const gcCard = document.getElementById('gcStandaloneCard');
+        if (gcCard) gcCard.style.display = isAdminOrMaster ? '' : 'none';
+
+        // Alterar senha — só master
+        const secSenha = document.getElementById('secaoAlterarSenha');
+        if (secSenha) secSenha.style.display = u.master ? '' : 'none';
+        if (resultado.offline) {
+          document.getElementById('tbOffline')?.classList.add('show');
+        }
+      }
+    }).catch(() => {});
+  }
+  checkOAuthStatus();
+
+  // Populate UF selects
+  // Populate npUF select with all states
+  const npUFSel = document.getElementById('npUF');
+  while (npUFSel.options.length > 1) npUFSel.remove(1);
+  STATES.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.uf;
+    opt.textContent = `${s.uf} — ${s.name}`;
+    npUFSel.appendChild(opt);
+  });
+
+  // Populate year/month/UF filters
+  populateYearFilter();
+
+  // Render
+  renderProjects();
+  updateStats();
+}
+
+function populateYearFilter() {
+  // Anos
+  const selYear = document.getElementById('filterYear');
+  while (selYear.options.length > 1) selYear.remove(1);
+  const years = [...new Set(projects.map(p => p.year))].sort((a,b) => b-a);
+  if (!years.includes(CY)) years.unshift(CY);
+  years.forEach(y => {
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y;
+    selYear.appendChild(opt);
+  });
+
+  // Meses — só os que existem nos projetos
+  const selMonth = document.getElementById('filterMonth');
+  const curMonth = selMonth.value;
+  while (selMonth.options.length > 1) selMonth.remove(1);
+  const activeMonths = new Set(projects.map(p => p.month));
+  while (selMonth.options.length > 1) selMonth.remove(1);
+  for (let i = 1; i <= 12; i++) {
+    const m = String(i).padStart(2, '0');
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = MONTH_NAMES[i];
+    if (!activeMonths.has(m)) {
+      opt.disabled = true;
+      opt.style.opacity = '0.3';
+      opt.style.color = 'var(--muted2)';
+    }
+    selMonth.appendChild(opt);
+  }
+  if (activeMonths.has(curMonth)) selMonth.value = curMonth;
+  else selMonth.value = '';
+
+  // Estados — só os que existem nos projetos
+  const selUF = document.getElementById('filterUF');
+  const curUF = selUF.value;
+  while (selUF.options.length > 1) selUF.remove(1);
+  const ufs = [...new Set(projects.map(p => p.uf).filter(Boolean))].sort();
+  ufs.forEach(uf => {
+    const opt = document.createElement('option');
+    opt.value = uf;
+    const state = STATES.find(s => s.uf === uf);
+    opt.textContent = state ? `${uf} — ${state.name}` : uf;
+    selUF.appendChild(opt);
+  });
+  if (ufs.includes(curUF)) selUF.value = curUF;
+  else { selUF.value = ''; onFilterUF(); }
+}
+
+// ══════════════════════════════════════
+// NEW PROJECT MODAL
+// ══════════════════════════════════════
+function openNewProject() {
+  document.getElementById('npName').value = '';
+  document.getElementById('npUF').value = '';
+  document.getElementById('npCity').value = '';
+  document.getElementById('npCity').disabled = true;
+  document.getElementById('npCity').innerHTML = '<option value="">— selecione o estado —</option>';
+  document.getElementById('npMonth').value = CM;
+  document.getElementById('npYear').value = CY;
+  document.getElementById('fpUser').textContent = userName;
+  updateProtoPreview();
+  openModal('modalNewProject');
+}
+
+async function onNpUF() {
+  const uf = document.getElementById('npUF').value;
+  const citySelect = document.getElementById('npCity');
+  citySelect.innerHTML = '<option value="">Carregando...</option>';
+  citySelect.disabled = true;
+
+  const cities = await loadCitiesForUF(uf);
+  citySelect.innerHTML = '<option value="">— selecione o município —</option>';
+  if (cities.length === 0) {
+    // Try IBGE API
+    try {
+      const stateCode = STATES.find(s => s.uf === uf)?.code;
+      const res = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${stateCode}/municipios?orderBy=nome`);
+      const data = await res.json();
+      CITIES_BY_UF[uf] = data.map(m => ({ name: m.nome, code: String(m.id) }));
+      CITIES_BY_UF[uf].forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = JSON.stringify(c);
+        opt.textContent = c.name;
+        citySelect.appendChild(opt);
+      });
+    } catch(e) {
+      citySelect.innerHTML = '<option value="">Erro ao carregar municípios</option>';
+    }
+  } else {
+    cities.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = JSON.stringify(c);
+      opt.textContent = c.name;
+      citySelect.appendChild(opt);
+    });
+  }
+  citySelect.disabled = false;
+  updateProtoPreview();
+}
+
+function updateProtoPreview() {
+  const name   = document.getElementById('npName').value.trim();
+  const uf     = document.getElementById('npUF').value;
+  const cityRaw = document.getElementById('npCity').value;
+  const month  = document.getElementById('npMonth').value;
+  const year   = document.getElementById('npYear').value;
+
+  let city = null;
+  try { city = cityRaw ? JSON.parse(cityRaw) : null; } catch(e) {}
+
+  const ready = name && uf && city && month && year;
+  document.getElementById('npSubmit').disabled = !ready;
+
+  if (ready) {
+    // Protocol: YEAR + IBGE_CODE(5 last digits) + sequential(3)
+    const cityCode = city.code.slice(-5);
+    const seq = getNextSeq(parseInt(year));
+    const proto = `${year}-${cityCode}-${String(seq).padStart(3,'0')}`;
+    document.getElementById('protoPreview').textContent = proto;
+
+    const safeName = name.replace(/[/\\:*?"<>|]/g, '').replace(/\s+/g, '_');
+    const folderName = `${year}_${month}_${safeName}`;
+    document.getElementById('fpFolder').textContent = folderName;
+  } else {
+    document.getElementById('protoPreview').textContent = '— preencha os campos acima —';
+    document.getElementById('fpFolder').textContent = 'AAAA_MM_Nome_do_Cliente';
+  }
+}
+
+function getNextSeq(year) {
+  const yearProjects = projects.filter(p => p.year === year);
+  return yearProjects.length + 1;
+}
+
+function createProject() {
+  const name    = document.getElementById('npName').value.trim();
+  const uf      = document.getElementById('npUF').value;
+  const cityRaw = document.getElementById('npCity').value;
+  const month   = document.getElementById('npMonth').value;
+  const year    = parseInt(document.getElementById('npYear').value);
+
+  let city = null;
+  try { city = JSON.parse(cityRaw); } catch(e) {}
+  if (!name || !uf || !city || !month || !year) return;
+
+  const stateName = STATES.find(s => s.uf === uf)?.name || uf;
+  const cityCode  = city.code.slice(-5);
+  const seq       = getNextSeq(year);
+  const protocol  = `${year}-${cityCode}-${String(seq).padStart(3,'0')}`;
+  const safeName  = name.replace(/[/\\:*?"<>|]/g, '').replace(/\s+/g, '_');
+  const folderName = `${year}_${month}_${safeName}`;
+  const rootPath   = getProjectRoot(folderName);
+
+  const project = {
+    id: Date.now().toString(),
+    name, uf, stateName, city: city.name, cityCode: city.code,
+    month, year, protocol, folderName, rootPath,
+    createdAt:      new Date().toISOString(),
+    createdBy:      userName, // sempre login, nunca nome de exibição
+    driveAccountId: _driveAccountEmail || '', // identifica qual Drive pertence
+    sharedWith: [],
+    observations: '',
+    status: 'active',
+    osItems: [],
+    flowDone: {},
+    // Simulated folder structure
+    folders: buildFolderStructure(),
+  };
+
+  projects.push(project);
+  closeModal('modalNewProject');
+  showToast(`✅ Projeto "${name}" criado!`);
+  populateYearFilter();
+  renderProjects();
+  updateStats();
+  // Salva projetos e cria pastas no Drive em paralelo
+  createFoldersOnDrive(project);
+}
+
+// ══════════════════════════════════════
+// DRIVE — CRIAR PASTAS DO PROJETO
+// ══════════════════════════════════════
+async function createFoldersOnDrive(project) {
+  if (!window.electronAPI?.driveCreateProjectFolders) {
+    await saveData();
+    return;
+  }
+  showToast('☁ Criando pastas no Drive...');
+  try {
+    const result = await window.electronAPI.driveCreateProjectFolders(
+      project.folderName,
+      project.folders
+    );
+    if (result.success) {
+      project.driveFolderId = result.folderId;
+      await saveData();
+      showToast(`📁 Pastas criadas no Drive!`);
+    } else {
+      await saveData();
+      showToast(`⚠ Projeto salvo, mas erro ao criar pastas: ${result.error}`);
+    }
+  } catch(err) {
+    await saveData();
+    showToast('⚠ Projeto salvo localmente. Erro no Drive.');
+    console.warn('[createFoldersOnDrive]', err);
+  }
+}
+
+function buildFolderStructure() {
+  return [
+    { name: 'Dados Brutos', fileCount: 0, children: [
+      { name: 'GNSS_BASE',  fileCount: 0, children: [] },
+      { name: 'GNSS_ROVER', fileCount: 0, children: [] },
+      { name: 'RINEX',      fileCount: 0, children: [] },
+    ]},
+    { name: 'IBGE_PPP', fileCount: 0, children: [] },
+    { name: 'Levantamento', fileCount: 0, children: [
+      { name: 'TXT',               fileCount: 0, children: [] },
+      { name: 'TXT_PPP_CORRIGIDO', fileCount: 0, children: [] },
+      { name: 'Aerolevantamento',  fileCount: 0, children: [] },
+    ]},
+    { name: 'CAD_GIS', fileCount: 0, children: [
+      { name: 'CAD_PRIMITIVO',  fileCount: 0, children: [] },
+      { name: 'CAD_PROJETADO',  fileCount: 0, children: [] },
+      { name: 'CAD_ENTREGAS',   fileCount: 0, children: [] },
+      { name: 'Shapefile_GPKG', fileCount: 0, children: [] },
+      { name: 'KMZ_KML',        fileCount: 0, children: [] },
+    ]},
+    { name: 'Relatórios', fileCount: 0, children: [
+      { name: 'Memoriais',  fileCount: 0, children: [] },
+      { name: 'Plantas',    fileCount: 0, children: [] },
+      { name: 'TRT_ART_RRT',fileCount: 0, children: [] },
+    ]},
+    { name: 'Fotos_Registro_Campo', fileCount: 0, children: [] },
+  ];
+}
+
+// ══════════════════════════════════════
+// RENDER PROJECTS
+// ══════════════════════════════════════
+const MONTH_NAMES = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tabAtivos').classList.toggle('active', tab === 'ativos');
+  document.getElementById('tabConcluidos').classList.toggle('active', tab === 'concluidos');
+  document.getElementById('tabTodos').classList.toggle('active', tab === 'todos');
+  renderProjects();
+}
+
+function renderProjects() {
+  const search  = document.getElementById('searchInput').value.toLowerCase();
+  const fYear   = document.getElementById('filterYear').value;
+  const fMonth  = document.getElementById('filterMonth').value;
+  const fUF     = document.getElementById('filterUF').value;
+  const fCity   = document.getElementById('filterCity').value;
+
+  // Tab filter
+  let filtered = projects.filter(p => {
+    const inTab = currentTab === 'todos'
+      ? true
+      : currentTab === 'concluidos'
+        ? p.status === 'finalizado'
+        : p.status !== 'finalizado';
+    if (!inTab) return false;
+    if (fYear  && String(p.year)  !== fYear)  return false;
+    if (fMonth && p.month !== fMonth)          return false;
+    if (fUF    && p.uf    !== fUF)             return false;
+    if (fCity  && p.city  !== fCity)           return false;
+    if (search && !p.name.toLowerCase().includes(search) &&
+        !p.protocol.toLowerCase().includes(search) &&
+        !p.city.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  // Sort newest first
+  filtered.sort((a, b) => b.year - a.year || b.month.localeCompare(a.month) || b.id.localeCompare(a.id));
+
+  const grid = document.getElementById('projectsGrid');
+  document.getElementById('projectCount').textContent = `${filtered.length} projeto${filtered.length !== 1 ? 's' : ''}`;
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty-state">
+      <span class="big">🗂️</span>
+      Nenhum projeto encontrado.<br>
+      ${projects.length === 0 ? 'Clique em <strong>+ Novo Projeto</strong> para começar.' : 'Tente ajustar os filtros.'}
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(p => {
+    const osItems = p.osItems || [];
+    const osDone = osItems.filter(i => i.done).length;
+    const osCancelled = osItems.filter(i => i.status === 'cancelled').length;
+    const osPending = osItems.length - osDone - osCancelled;
+
+    const osCanEdit = userMaster || userRole === 'admin';
+    const osHTML = osItems.length === 0
+      ? `<div class="os-inline-empty">Nenhum serviço adicionado.</div>`
+      : osItems.map((item, i) => `
+          <div class="os-inline-item ${item.done ? 'done' : item.status === 'cancelled' ? 'cancelled' : ''}" id="osinline-${p.id}-${i}">
+            <div class="os-btn-check" ${osCanEdit ? `onclick="toggleOSInline('${p.id}',${i})"` : 'style="cursor:default;pointer-events:none;"'} title="Concluído">✓</div>
+            <span class="os-inline-name">${item.name}</span>
+            <span class="os-inline-tag">(Concluído)</span>
+            <span class="os-inline-cancel-tag">(Cancelado)</span>
+            ${osCanEdit && !item.done ? `<div class="os-btn-cancel" onclick="cancelOSInline('${p.id}',${i})" title="Cancelado">✕</div>` : ''}
+            ${osCanEdit && !item.done ? `<div class="os-btn-remove" onclick="removeOSInline('${p.id}',${i})" title="Remover">🗑</div>` : ''}
+          </div>`).join('');
+
+    const treeHTML = renderTree(p.folders || [], 0, p.id, p.rootPath);
+
+    return `
+    <div class="proj-card" id="card-${p.id}">
+      <!-- HEADER — clicável para expandir -->
+      <div class="proj-card-header" onclick="toggleCard('${p.id}')">
+        <span class="proj-card-chevron">▶</span>
+        <div class="proj-card-info">
+          <div class="proj-protocol" style="display:flex;align-items:center;gap:5px;">
+            OS ${p.protocol}
+            <svg onclick="event.stopPropagation();copyProtocol('${p.protocol}')" 
+              title="Copiar protocolo"
+              style="width:12px;height:12px;cursor:pointer;opacity:0.5;flex-shrink:0;transition:opacity 0.15s;"
+              onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+          </div>
+          <div class="proj-name" style="display:flex;align-items:center;gap:6px;">
+            ${p.name}
+            ${(userMaster || userRole === 'admin') ? renderEquipeBtn(p) : ''}
+          </div>
+          ${p.createdBy && p.createdBy !== userName ? `<div style="font-size:0.68rem;color:var(--muted);margin-top:2px;">👤 ${p.createdBy}</div>` : ''}
+        </div>
+        <div class="proj-card-meta-inline">
+          <div class="proj-meta-pill">${p.uf} <span>${p.city}</span></div>
+          <div class="proj-meta-pill">${MONTH_NAMES[parseInt(p.month)]}/<span>${p.year}</span></div>
+          ${osItems.length ? `<div class="proj-meta-pill" id="os-pill-${p.id}">Serv: <span style="color:var(--accent)">${osDone}✓</span> <span style="color:var(--danger)">${osCancelled}✕</span> <span>${osPending} pend.</span></div>` : `<div class="proj-meta-pill" id="os-pill-${p.id}" style="display:none"></div>`}
+        </div>
+        <div class="proj-card-actions-inline" onclick="event.stopPropagation()">
+          <div class="status-dropdown-wrap">
+            ${(userMaster || userRole === 'admin') ? `
+            <span class="proj-badge ${getBadgeClass(p.status)}" onclick="toggleStatusDropdown(event,'${p.id}')">${getStatusLabel(p.status)}</span>
+            <div class="status-dropdown" id="statusDrop-${p.id}">
+              <div class="status-opt" onclick="setStatus('${p.id}','active')"><span class="status-dot" style="background:var(--warn)"></span>Ativo</div>
+              <div class="status-opt" onclick="setStatus('${p.id}','finalizado')"><span class="status-dot" style="background:var(--accent)"></span>Finalizado</div>
+              <div class="status-opt" onclick="setStatus('${p.id}','archived')"><span class="status-dot" style="background:var(--muted)"></span>Arquivado</div>
+              <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
+              <div class="status-opt" onclick="openDuplicate('${p.id}')">
+                <span style="font-size:0.8rem">⧉</span> Duplicar como novo projeto
+              </div>
+            </div>
+            ` : `<span class="proj-badge ${getBadgeClass(p.status)}">${getStatusLabel(p.status)}</span>`}
+          </div>
+          ${userMaster ? `<button class="btn-action danger" onclick="openDelete('${p.id}')" title="Excluir">🗑</button>` : ''}
+        </div>
+      </div>
+
+      <!-- MINI FLOW ROW -->
+      <div class="mini-flow-row" id="mini-flow-${p.id}" onclick="event.stopPropagation()">
+        ${['brutos','campo','ppp','entregas'].map(step => `
+          <div class="mini-flow-step" id="mini-flow-${step}-${p.id}">
+            <span class="mini-flow-dot"></span>
+            <span class="mini-flow-label">${{brutos:'DADOS BRUTOS',campo:'LEVANTAMENTO',ppp:'PPP IBGE',entregas:'ENTREGAS'}[step]}</span>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- EXPANDED BODY -->
+      <div class="proj-expand-body">
+
+        <!-- PAINEL DE FLUXO -->
+        <div class="flow-panel" id="flow-${p.id}">
+          <div class="flow-step" id="flow-brutos-${p.id}" title="Amarelo: GNSS_BASE com arquivos · Verde: RINEX com arquivos">
+            <div class="flow-step-top"><span class="flow-dot"></span><span class="flow-step-label">DADOS BRUTOS</span></div>
+            <div class="flow-step-sub" style="visibility:hidden;">·</div>
+            <div style="display:flex;align-items:center;gap:4px;">
+            <button class="flow-upload-btn" onclick="event.stopPropagation();abrirUploadDest('${p.id}','brutos')" title="Enviar arquivos">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M6 8V2M3 5l3-3 3 3M2 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              upload
+            </button>
+            <span class="upload-hint">?<span class="upload-hint-tip">.T0x .TRT .R10 .M00 .DBX .HCN<br>.TPS .LOG .UBX .DAT .RTCM<br>.RNX .OBS .22O .BIN .RAW etc.</span></span>
+            </div>
+          </div>
+          <div class="flow-step clickable" id="flow-campo-${p.id}" onclick="toggleFlowStep('${p.id}','campo')" title="Amarelo: TXT detectado · Verde: clique para concluir">
+            <div class="flow-step-top"><span class="flow-dot"></span><span class="flow-step-label">LEVANTAMENTO EM CAMPO</span><span class="flow-arrow">˅</span></div>
+            <div class="flow-step-sub" id="flow-campo-sub-${p.id}">Em andamento</div>
+            <button class="flow-upload-btn" onclick="event.stopPropagation();abrirUploadDest('${p.id}','campo')" title="Enviar arquivos">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M6 8V2M3 5l3-3 3 3M2 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              upload
+            </button>
+          </div>
+          <div class="flow-step" id="flow-ppp-${p.id}" title="Automático: PDF na pasta IBGE_PPP">
+            <div class="flow-step-top"><span class="flow-dot"></span><span class="flow-step-label">PPP IBGE</span></div>
+            <div class="flow-step-sub" style="visibility:hidden;">·</div>
+            <button class="flow-upload-btn" onclick="event.stopPropagation();abrirUploadDest('${p.id}','ppp')" title="Enviar PDF do IBGE">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M6 8V2M3 5l3-3 3 3M2 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              upload
+            </button>
+          </div>
+          <div class="flow-step clickable" id="flow-entregas-${p.id}" onclick="toggleFlowStep('${p.id}','entregas')" title="Amarelo: CAD_GIS com arquivos · Verde: clique para concluir">
+            <div class="flow-step-top"><span class="flow-dot"></span><span class="flow-step-label">ENTREGAS</span><span class="flow-arrow">˅</span></div>
+            <div class="flow-step-sub" id="flow-entregas-sub-${p.id}">Em andamento</div>
+            <button class="flow-upload-btn" onclick="event.stopPropagation();abrirUploadDest('${p.id}','entregas')" title="Enviar arquivos de entrega">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M6 8V2M3 5l3-3 3 3M2 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              upload
+            </button>
+          </div>
+        </div>
+
+        <div class="proj-expand-inner">
+
+          <!-- COL 1: ARQUIVOS -->
+          <div class="expand-col">
+            <div class="expand-col-title">📁 Arquivos do Projeto</div>
+            <div style="font-family:var(--mono);font-size:0.58rem;color:var(--muted2);margin-bottom:8px;word-break:break-all;">
+              ☁ GeoManager/GeoProjects/${p.folderName}
+            </div>
+            <div id="tree-${p.id}">${treeHTML}</div>
+          </div>
+
+          <!-- COL 2: ORDEM DE SERVIÇO + BOTÕES -->
+          <div class="expand-col">
+            <div class="expand-col-title">📋 Escopo Contratado</div>
+            ${osCanEdit ? `<div class="os-presets" id="os-presets-${p.id}">
+              ${[
+                ...PRESET_SERVICES.filter(s => (p.osItems||[]).some(i => i.name === s && i.done)),
+                ...PRESET_SERVICES.filter(s => (p.osItems||[]).some(i => i.name === s && !i.done)),
+                ...PRESET_SERVICES.filter(s => !(p.osItems||[]).some(i => i.name === s))
+              ].map(s => {
+                const already = (p.osItems||[]).some(i => i.name === s);
+                return `<span class="os-preset-chip ${already ? 'used' : ''}" onclick="addPresetService('${p.id}', this, '${s.replace(/'/g,"\\'")}')">+ ${s}</span>`;
+              }).join('')}
+            </div>` : ''}
+            <div id="osinline-list-${p.id}" style="max-height:160px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;">${osHTML}</div>
+            ${osCanEdit ? `<div class="os-inline-add">
+              <input id="osinline-input-${p.id}" placeholder="Outro serviço..." onkeydown="if(event.key==='Enter') addOSInline('${p.id}')">
+              <button onclick="addOSInline('${p.id}')">+ Add</button>
+            </div>` : ''}
+
+            <!-- BOTÕES no fim da coluna direita -->
+            <div class="proj-expand-actions" style="margin-top:auto;padding-top:16px;">
+              ${(() => {
+                const obsCount = (p.observations || '').split('\n').filter(l => l.trim()).length;
+                const hasObs   = obsCount > 0;
+                return `<button class="btn-action${hasObs ? ' has-obs' : ''}" onclick="openObs('${p.id}')">
+                  📝 Observações${hasObs ? ` <span class="obs-badge">${obsCount}</span>` : ''}
+                </button>`;
+              })()}
+              ${(userMaster || userRole === 'admin') ? `<button class="btn-action green" onclick="openGeoCorretor('${p.id}')" style="display:flex;align-items:center;gap:5px;">📁 → ${GEO_ICON_SVG} GeoCorretor</button>` : ''}
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Mini flow dos cards fechados só atualiza ao abrir — não dispara aqui
+  // (evita N×6 chamadas simultâneas ao Drive a cada render)
+
+  // Atualiza mini-flow dos cards fechados de forma escalonada (1 por vez, 600ms de intervalo)
+  // para manter os indicadores visuais sem sobrecarregar a API do Drive
+  if (window.electronAPI?.driveCountFiles) {
+    let i = 0;
+    const ids = filtered.map(p => p.id);
+    function nextMiniFlow() {
+      if (i >= ids.length) return;
+      const card = document.getElementById(`card-${ids[i]}`);
+      // Só atualiza se o card estiver fechado (expandido já terá sido atualizado pelo toggleCard)
+      if (card && !card.classList.contains('expanded')) {
+        refreshFlowPanel(ids[i]);
+      }
+      i++;
+      setTimeout(nextMiniFlow, 600);
+    }
+    setTimeout(nextMiniFlow, 200);
+  }
+}
+
+function updateStats() {
+  document.getElementById('statTotal').textContent  = projects.length;
+  document.getElementById('statYear').textContent   = projects.filter(p => p.year === CY).length;
+  document.getElementById('statMonth').textContent  = projects.filter(p => p.year === CY && p.month === CM).length;
+  document.getElementById('statStates').textContent = new Set(projects.map(p => p.uf)).size;
+
+  const nConcluidos = projects.filter(p => p.status === 'finalizado').length;
+  document.getElementById('tabConcluidos').textContent =
+    `Concluídos${nConcluidos > 0 ? ` (${nConcluidos})` : ''}`;
+}
+
+// ══════════════════════════════════════
+// FILTERS
+// ══════════════════════════════════════
+function onFilterUF() {
+  const uf = document.getElementById('filterUF').value;
+  const citySelect = document.getElementById('filterCity');
+  citySelect.innerHTML = '<option value="">Todos os municípios</option>';
+  if (uf) {
+    const cities = [...new Set(projects.filter(p => p.uf === uf).map(p => p.city).filter(Boolean))].sort();
+    cities.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c; opt.textContent = c;
+      citySelect.appendChild(opt);
+    });
+  }
+  renderProjects();
+}
+
+function clearFilters() {
+  document.getElementById('filterYear').value  = '';
+  document.getElementById('filterMonth').value = '';
+  document.getElementById('filterUF').value    = '';
+  document.getElementById('filterCity').innerHTML = '<option value="">Todos os municípios</option>';
+  document.getElementById('searchInput').value = '';
+  renderProjects();
+}
+
+// ══════════════════════════════════════
+// FILE EXPLORER (SIDE PANEL)
+// ══════════════════════════════════════
+function openFileExplorer(id) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  sidePanelProjectId = id;
+
+  document.getElementById('sidePanelTitle').textContent = p.name;
+
+  const tree = document.getElementById('fileTree');
+  tree.innerHTML = `
+    <div style="padding:8px 18px 4px; font-family:var(--mono); font-size:0.6rem; color:var(--muted); word-break:break-all;">
+      ☁ GeoManager/GeoProjects/${p.folderName}
+    </div>
+    ${renderTree(p.folders, 0, p.id, p.rootPath)}
+  `;
+
+  document.getElementById('sidePanel').classList.add('open');
+}
+
+function closeSidePanel() {
+  document.getElementById('sidePanel').classList.remove('open');
+}
+
+function toggleCard(id) {
+  const card = document.getElementById(`card-${id}`);
+  if (!card) return;
+  card.classList.toggle('expanded');
+  if (card.classList.contains('expanded')) {
+    refreshFileCounts(id);
+    refreshFlowPanel(id);
+  }
+}
+
+async function refreshFlowPanel(projectId) {
+  const p = projects.find(x => x.id === projectId);
+  if (!p || !window.electronAPI?.driveCountFiles) return;
+
+  const base = ['GeoProjects', p.folderName];
+
+  const check = async (subPath, recursive = false) => {
+    try {
+      const drivePath = [...base, ...subPath.split('/')];
+      const fn = recursive ? 'driveCountFilesRecursive' : 'driveCountFiles';
+      const res = await window.electronAPI[fn](drivePath);
+      return (res.count || 0) > 0;
+    } catch(e) { return false; }
+  };
+
+  // Todas as verificações em paralelo — sem esperar uma pela outra
+  const [
+    hasBase, hasRinex,   // DADOS BRUTOS
+    hasTxt, hasTxtCorr,  // LEVANTAMENTO (só TXT e TXT_PPP_CORRIGIDO)
+    hasPPP,              // PPP IBGE
+    hasCad,              // ENTREGAS (CAD_GIS recursivo)
+  ] = await Promise.all([
+    check('Dados Brutos/GNSS_BASE'),
+    check('Dados Brutos/RINEX'),
+    check('Levantamento/TXT'),
+    check('Levantamento/TXT_PPP_CORRIGIDO'),
+    check('IBGE_PPP'),
+    check('CAD_GIS', true),
+  ]);
+
+  const campoDone   = !!(p.flowDone?.campo);
+  const entregaDone = !!(p.flowDone?.entregas);
+  const hasLev      = hasTxt || hasTxtCorr;
+
+  setFlowStep(projectId, 'brutos',   hasRinex   ? 'green' : hasBase ? 'yellow' : '');
+  setFlowStep(projectId, 'campo',    campoDone  ? 'green' : hasLev  ? 'yellow' : '');
+  setFlowStep(projectId, 'ppp',      hasPPP     ? 'green' : '');
+  setFlowStep(projectId, 'entregas', entregaDone ? 'green' : hasCad  ? 'yellow' : '');
+}
+
+function setFlowStep(projectId, step, state) {
+  // Update full flow panel
+  const el  = document.getElementById(`flow-${step}-${projectId}`);
+  const sub = document.getElementById(`flow-${step}-sub-${projectId}`);
+  if (el) {
+    el.classList.remove('yellow', 'green');
+    if (state) el.classList.add(state);
+    if (sub) sub.textContent = state === 'green' ? '✓ Completado' : 'Em andamento';
+  }
+
+  // Update mini flow indicator
+  const mini = document.getElementById(`mini-flow-${step}-${projectId}`);
+  if (mini) {
+    mini.classList.remove('yellow', 'green', 'green-vivid');
+    const isClickable = step === 'campo' || step === 'entregas';
+    if (state === 'green') mini.classList.add(isClickable ? 'green-vivid' : 'green');
+    else if (state === 'yellow') mini.classList.add('yellow');
+  }
+}
+
+function toggleFlowStep(projectId, step) {
+  const p = projects.find(x => x.id === projectId);
+  if (!p) return;
+  if (!p.flowDone) p.flowDone = {};
+
+  const el = document.getElementById(`flow-${step}-${projectId}`);
+  if (!el) return;
+
+  let newState;
+  if (el.classList.contains('green')) {
+    p.flowDone[step] = false;
+    newState = 'yellow'; // volta para amarelo (tem arquivos)
+  } else if (el.classList.contains('yellow')) {
+    p.flowDone[step] = true;
+    newState = 'green';
+  } else {
+    return; // cinza — nada a fazer
+  }
+
+  // Atualiza visual IMEDIATAMENTE — sem await
+  setFlowStep(projectId, step, newState);
+
+  // Salva no Drive em background — reverte se falhar
+  saveWithRevert(() => {}, 'toggleFlowStep', p);
+}
+
+async function refreshFileCounts(projectId) {
+  const p = projects.find(x => x.id === projectId);
+  if (!p || !window.electronAPI?.driveCountFiles) return;
+
+  const driveBase = ['GeoProjects', p.folderName];
+
+  async function updateCounts(items, drivePathArr) {
+    for (const item of items) {
+      if (item.isFile) continue;
+      const itemDrivePath = [...drivePathArr, item.name];
+      try {
+        const res = await window.electronAPI.driveCountFiles(itemDrivePath);
+        item.fileCount = res.count || 0;
+      } catch(e) { item.fileCount = 0; }
+      if (item.children?.length) await updateCounts(item.children, itemDrivePath);
+    }
+  }
+
+  await updateCounts(p.folders || [], driveBase);
+  // Re-render a árvore de pastas no card
+  const treeEl = document.getElementById(`tree-${projectId}`);
+  if (treeEl) treeEl.innerHTML = renderTree(p.folders || [], 0, projectId, p.rootPath);
+  // Re-render o painel lateral se estiver aberto para este projeto
+  if (sidePanelProjectId === projectId) {
+    const fileTree = document.getElementById('fileTree');
+    if (fileTree) {
+      fileTree.innerHTML = `
+        <div style="padding:8px 18px 4px; font-family:var(--mono); font-size:0.6rem; color:var(--muted); word-break:break-all;">
+          ☁ GeoManager/GeoProjects/${p.folderName}
+        </div>
+        ${renderTree(p.folders, 0, p.id, p.rootPath)}
+      `;
+    }
+  }
+}
+
+function totalCount(item) {
+  const own = item.fileCount || 0;
+  const sub = (item.children || []).filter(c => !c.isFile).reduce((s, c) => s + totalCount(c), 0);
+  return own + sub;
+}
+
+function renderTree(items, depth, projectId, basePath, drivePathArr) {
+  const indent = 10 + depth * 14;
+  const fontSize = depth === 0 ? '0.68rem' : '0.62rem';
+  const nameColor = depth === 0 ? 'var(--text)' : 'var(--muted)';
+  const p = projects.find(x => x.id === projectId);
+  const base = basePath || p?.rootPath || `GeoProjects_${userName}\\${p?.folderName || ''}`;
+  // Caminho Drive base: ['GeoProjects', folderName]
+  const driveBase = drivePathArr || ['GeoProjects', p?.folderName || ''];
+
+  return items.map(item => {
+    if (item.isFile) {
+      return `<div class="tree-file" style="padding-left:${indent + 16}px" onclick="openFile('${item.name}')">
+        <span class="file-icon">${getFileIcon(item.name)}</span>
+        <span class="file-name">${item.name}</span>
+      </div>`;
+    }
+
+    const count = totalCount(item);
+    const hasFiles = count > 0;
+    const itemFullPath = joinPath(base, item.name);
+    const itemDrivePath = [...driveBase, item.name];
+    const drivePathJson = JSON.stringify(itemDrivePath).replace(/'/g, "\'");
+    const childrenHtml = (item.children || []).length
+      ? renderTree(item.children, depth + 1, projectId, itemFullPath, itemDrivePath)
+      : '';
+
+    const countBadge = hasFiles
+      ? `<span class="folder-file-count">${count}</span>`
+      : '';
+
+    return `
+      <div class="tree-folder">
+        <div class="tree-folder-row${hasFiles ? ' has-files' : ''}" style="padding-left:${indent}px" onclick="toggleFolder(this)">
+          <span class="arrow">▶</span>
+          <span class="folder-icon">📁</span>
+          <span class="folder-name" style="font-size:${fontSize};${hasFiles ? '' : `color:${nameColor}`}">${item.name}</span>
+          ${countBadge}
+
+          <span class="folder-open-btn" title="Enviar arquivo para esta pasta" style="margin-left:2px;"
+            data-drivepath='${JSON.stringify(itemDrivePath).replace(/'/g, "&apos;")}'
+            data-foldername="${item.name.replace(/"/g,'&quot;')}"
+            data-projectid="${projectId}"
+            data-haschildren="${(item.children||[]).filter(c=>!c.isFile).length > 0}"
+            onclick="uploadParaPastaBtn(event,this)">⬆</span>
+          ${hasFiles ? `<span class="folder-download-btn" title="Baixar arquivos para o computador"
+            data-drivepath='${JSON.stringify(itemDrivePath).replace(/'/g, "&apos;")}'
+            data-foldername="${item.name.replace(/"/g,'&quot;')}"
+            data-filecount="${count}"
+            onclick="downloadPastaBtn(event,this)"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="14" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 15h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M8 11v2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M8 4v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M6 6.5l2 2 2-2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ''}
+        </div>
+        <div class="tree-children">${childrenHtml}</div>
+      </div>`;
+  }).join('');
+}
+
+function toggleFolder(row) {
+  row.classList.toggle('open');
+  row.nextElementSibling.classList.toggle('open');
+}
+
+function getFileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  const icons = { txt: '📄', pdf: '📕', dwg: '📐', kmz: '🗺️', jpg: '🖼️', png: '🖼️', csv: '📊' };
+  return icons[ext] || '📄';
+}
+
+// Upload direto pelo painel lateral de arquivos
+function uploadParaPastaBtn(e, el) {
+  e.stopPropagation();
+  const drivePathJson = el.dataset.drivepath.replace(/&apos;/g, "'");
+  const folderName    = el.dataset.foldername;
+  const projectId     = el.dataset.projectid;
+  const hasChildren   = el.dataset.haschildren === 'true';
+  uploadParaPasta(e, drivePathJson, folderName, projectId, hasChildren);
+}
+
+async function uploadParaPasta(e, drivePathJson, folderName, projectId, hasChildren) {
+  e.stopPropagation();
+
+  // drivePathJson é um array JSON ex: ["GeoProjects","2026_01_Fazenda","Dados Brutos","GNSS_BASE"]
+  let drivePath;
+  try { drivePath = JSON.parse(drivePathJson); } catch(_) { drivePath = [drivePathJson]; }
+
+  // Se tem subpastas, mostra modal de seleção em vez de upload direto
+  if (hasChildren) {
+    const p = projects.find(x => x.id === projectId);
+    if (!p) return;
+    // Encontra os filhos desta pasta na estrutura do projeto
+    function findFolder(items, name) {
+      for (const item of items) {
+        if (item.name === folderName) return item;
+        if (item.children) { const r = findFolder(item.children, name); if (r) return r; }
+      }
+      return null;
+    }
+    const folder = findFolder(p.folders || [], folderName);
+    const subpastas = (folder?.children || []).filter(c => !c.isFile);
+    if (subpastas.length > 0) {
+      // Monta destinos temporários e abre modal
+      _uploadCtx = { projectId, etapa: '__custom__', customDrivePath: drivePath, customSubs: subpastas };
+      document.getElementById('uploadDestEtapa').textContent = folderName;
+      const opts = document.getElementById('uploadDestOpcoes');
+      opts.innerHTML = subpastas.map((s, i) => `
+        <div class="upload-dest-opt" onclick="selecionarDestinoCustom(${i})">
+          <span>📁 ${s.name}</span>
+        </div>
+      `).join('');
+      document.getElementById('uploadExtsList').style.display = 'none';
+      document.getElementById('modalUploadDest').classList.add('open');
+      return;
+    }
+  }
+
+  // Extensões permitidas por pasta
+  const extMap = {
+    'GNSS_BASE':            null, // aceita tudo
+    'GNSS_ROVER':           null,
+    'RINEX':                ['rnx','obs','22o','23o','24o','25o','nav','zip'],
+    'IBGE_PPP':             ['pdf'],
+    'TXT':                  ['txt','csv'],
+    'TXT_PPP_CORRIGIDO':    ['txt','csv'],
+    'Aerolevantamento':     ['las','laz','tif','tiff','xyz','e57'],
+    'CAD_PRIMITIVO':        ['dwg','dxf'],
+    'CAD_PROJETADO':        ['dwg','dxf'],
+    'CAD_ENTREGAS':         ['dwg','dxf','pdf'],
+    'Shapefile_GPKG':       ['shp','gpkg','zip','dbf','prj','shx'],
+    'KMZ_KML':              ['kmz','kml'],
+    'Memoriais':            ['pdf','docx','doc'],
+    'Plantas':              ['pdf','dwg'],
+    'TRT_ART_RRT':          ['pdf'],
+    'Fotos_Registro_Campo': ['jpg','jpeg','png','heic'],
+  };
+
+  const exts = extMap[folderName] !== undefined ? extMap[folderName] : null;
+
+  showUploadProgress(`Preparando envio para ${folderName}...`);
+
+  const res  = await window.electronAPI.uploadFilesDialog(drivePath, exts, p?.driveAccountId || '');
+  if (res.canceled) { hideUploadProgress(false); return; }
+
+  const total   = (res.results || []).length;
+  const sucesso = res.results.filter(r => r.success).length;
+  const falhou  = res.results.filter(r => !r.success);
+
+  updateUploadProgress(`Enviando para ${folderName}...`, `${sucesso}/${total}`);
+  hideUploadProgress(sucesso > 0);
+
+  if (sucesso > 0) {
+    showToast(`✓ ${sucesso} arquivo${sucesso > 1 ? 's' : ''} enviado${sucesso > 1 ? 's' : ''} para ${folderName}`);
+    if (projectId) {
+      await refreshFileCounts(projectId);
+      await refreshFlowPanel(projectId);
+    }
+  }
+  falhou.forEach(f => showToast(`⚠️ ${f.file}: ${f.error}`));
+}
+
+// Download de pasta do Drive — arquivo único ou ZIP
+async function downloadPastaBtn(e, el) {
+  e.stopPropagation();
+  const drivePathJson = el.dataset.drivepath.replace(/&apos;/g, "'");
+  const folderName    = el.dataset.foldername;
+  const fileCount     = parseInt(el.dataset.filecount) || 0;
+
+  let drivePath;
+  try { drivePath = JSON.parse(drivePathJson); } catch(_) { return; }
+
+  if (!window.electronAPI?.driveDownloadFolder) {
+    showToast('⚠️ Download não disponível');
+    return;
+  }
+
+  el.classList.add('loading');
+  el.textContent = '⏳';
+  showToast(`⬇ Baixando ${fileCount} arquivo${fileCount > 1 ? 's' : ''} de ${folderName}...`);
+
+  try {
+    const res = await window.electronAPI.driveDownloadFolder(drivePath, folderName);
+    if (res.success) {
+      showToast(`✅ ${res.message}`);
+    } else {
+      showToast(`⚠️ ${res.error || 'Erro ao baixar'}`);
+    }
+  } catch(e) {
+    showToast(`⚠️ Erro: ${e.message}`);
+  } finally {
+    el.classList.remove('loading');
+    el.innerHTML = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="14" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 15h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M8 11v2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M8 4v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M6 6.5l2 2 2-2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+}
+
+// Abre pasta no Google Drive pelo navegador
+async function abrirNoDrive(e, el) {
+  e.stopPropagation();
+  const drivePathJson = el.dataset.drivepath?.replace(/&apos;/g, "'");
+  if (!drivePathJson) return;
+  let drivePath;
+  try { drivePath = JSON.parse(drivePathJson); } catch(_) { return; }
+
+  // Monta URL de busca do Drive pela pasta mais específica (último elemento)
+  const folderName = drivePath[drivePath.length - 1];
+  const url = `https://drive.google.com/drive/search?q=${encodeURIComponent(folderName)}`;
+  if (window.electronAPI?.openExternal) {
+    window.electronAPI.openExternal(url);
+  } else {
+    window.open(url, '_blank');
+  }
+}
+
+function openInExplorer(e, el) {
+  e.stopPropagation();
+  const folderPath = el.dataset.path;
+  if (!folderPath) return;
+  if (window.electronAPI) {
+    window.electronAPI.openFolder(folderPath).then(res => {
+      if (res && !res.success) showToast(`⚠️ ${res.error}`);
+    });
+  } else {
+    showToast(`📂 ${folderPath} — disponível na versão desktop (.exe)`);
+  }
+}
+
+function openFile(name) {
+  showToast(`📄 Abrindo ${name}... (disponível na versão desktop)`);
+}
+
+// ══════════════════════════════════════
+// OS INLINE
+// ══════════════════════════════════════
+function addPresetService(id, chip, name) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  if (!p.osItems) p.osItems = [];
+  if (p.osItems.some(i => i.name === name)) return;
+  // Atualiza visual IMEDIATAMENTE
+  p.osItems.push({ name, done: false, status: 'pending' });
+  chip.classList.add('used');
+  refreshOSInline(p);
+  // Salva no Drive em background — reverte se falhar
+  saveWithRevert(() => {}, 'addPresetService', p);
+}
+
+function addOSInline(id) {
+  const input = document.getElementById(`osinline-input-${id}`);
+  const val = input?.value.trim();
+  if (!val) return;
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  if (!p.osItems) p.osItems = [];
+  // Atualiza visual IMEDIATAMENTE
+  p.osItems.push({ name: val, done: false, status: 'pending' });
+  input.value = '';
+  refreshOSInline(p);
+  // Salva no Drive em background — reverte se falhar
+  saveWithRevert(() => {}, 'addOSInline', p);
+}
+
+// Atualiza o botão de observações no card após adicionar/remover
+function refreshObsBtn(p) {
+  const btn = document.querySelector(`[onclick="openObs('${p.id}')"]`);
+  if (!btn) return;
+  const obsCount = (p.observations || '').split('\n').filter(l => l.trim()).length;
+  const hasObs   = obsCount > 0;
+  btn.className  = `btn-action${hasObs ? ' has-obs' : ''}`;
+  btn.innerHTML  = `📝 Observações${hasObs ? ` <span class="obs-badge">${obsCount}</span>` : ''}`;
+}
+
+function toggleOSInline(id, idx) {
+  const p = projects.find(x => x.id === id);
+  if (!p?.osItems?.[idx]) return;
+  const item = p.osItems[idx];
+  if (item.status === 'cancelled') return;
+  // Atualiza visual IMEDIATAMENTE
+  item.done = !item.done;
+  item.status = item.done ? 'done' : 'pending';
+  refreshOSInline(p);
+  // Salva no Drive em background — reverte se falhar
+  saveWithRevert(() => {}, 'toggleOSInline', p);
+}
+
+function removeOSInline(id, idx) {
+  const p = projects.find(x => x.id === id);
+  if (!p?.osItems) return;
+  // Atualiza visual IMEDIATAMENTE
+  p.osItems.splice(idx, 1);
+  refreshOSInline(p);
+  saveWithRevert(() => {}, 'removeOSInline', p);
+}
+
+function cancelOSInline(id, idx) {
+  const p = projects.find(x => x.id === id);
+  if (!p?.osItems?.[idx]) return;
+  const item = p.osItems[idx];
+  // Atualiza visual IMEDIATAMENTE
+  item.status = item.status === 'cancelled' ? 'pending' : 'cancelled';
+  item.done = false;
+  refreshOSInline(p);
+  // Salva no Drive em background — reverte se falhar
+  saveWithRevert(() => {}, 'cancelOSInline', p);
+}
+
+function refreshOSInline(p) {
+  const container = document.getElementById(`osinline-list-${p.id}`);
+  if (!container) return;
+  const osItems = p.osItems || [];
+  if (osItems.length === 0) {
+    container.innerHTML = `<div class="os-inline-empty">Nenhum serviço adicionado.</div>`;
+  } else {
+    const canEditInline = userMaster || userRole === 'admin';
+    container.innerHTML = osItems.map((item, i) => `
+      <div class="os-inline-item ${item.done ? 'done' : item.status === 'cancelled' ? 'cancelled' : ''}">
+        <div class="os-btn-check" ${canEditInline ? `onclick="toggleOSInline('${p.id}',${i})"` : 'style="cursor:default;pointer-events:none;"'} title="Concluído">✓</div>
+        <span class="os-inline-name">${item.name}</span>
+        <span class="os-inline-tag">(Concluído)</span>
+        <span class="os-inline-cancel-tag">(Cancelado)</span>
+        ${canEditInline && !item.done ? `<div class="os-btn-cancel" onclick="cancelOSInline('${p.id}',${i})" title="Cancelado">✕</div>` : ''}
+        ${canEditInline && !item.done ? `<div class="os-btn-remove" onclick="removeOSInline('${p.id}',${i})" title="Remover">🗑</div>` : ''}
+      </div>`).join('');
+  }
+
+  // Sync e reordena preset chips — selecionados primeiro, mantendo ordem original dentro de cada grupo
+  const presetsWrap = document.getElementById(`os-presets-${p.id}`);
+  if (presetsWrap) {
+    const chips = Array.from(presetsWrap.querySelectorAll('.os-preset-chip'));
+    chips.forEach(chip => {
+      const name = chip.textContent.replace(/^\+\s*/, '').trim();
+      const item = (p.osItems || []).find(i => i.name === name);
+      chip.classList.toggle('used', !!item);
+      chip.classList.toggle('done', !!(item && item.done));
+    });
+    // Reordena: concluídos → adicionados → disponíveis (mantendo ordem original em cada grupo)
+    const concluidos  = PRESET_SERVICES.map(s => chips.find(c => c.textContent.replace(/^\+\s*/, '').trim() === s)).filter(c => c && c.classList.contains('done'));
+    const adicionados = PRESET_SERVICES.map(s => chips.find(c => c.textContent.replace(/^\+\s*/, '').trim() === s)).filter(c => c && c.classList.contains('used') && !c.classList.contains('done'));
+    const disponiveis = PRESET_SERVICES.map(s => chips.find(c => c.textContent.replace(/^\+\s*/, '').trim() === s)).filter(c => c && !c.classList.contains('used'));
+    [...concluidos, ...adicionados, ...disponiveis].forEach(c => presetsWrap.appendChild(c));
+  }
+
+  // Update header summary pill
+  const osDone      = osItems.filter(i => i.done).length;
+  const osCancelled = osItems.filter(i => i.status === 'cancelled').length;
+  const osPending   = osItems.length - osDone - osCancelled;
+  const pill = document.getElementById(`os-pill-${p.id}`);
+  if (pill) {
+    if (osItems.length === 0) {
+      pill.style.display = 'none';
+    } else {
+      pill.style.display = '';
+      pill.innerHTML = `Serv: <span style="color:var(--accent)">${osDone}✓</span> <span style="color:var(--danger)">${osCancelled}✕</span> <span>${osPending} pend.</span>`;
+    }
+  }
+}
+
+// ══════════════════════════════════════
+// OBSERVATIONS
+// ══════════════════════════════════════
+function openObs(id) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  obsTargetId = id;
+  document.getElementById('obsProjectName').textContent = `${p.protocol} — ${p.name}`;
+  document.getElementById('obsText').value = '';
+  // Observações salvas no próprio projeto (campo observations)
+  const obsWrap = document.getElementById('obsListWrap');
+  const obsList = document.getElementById('obsList');
+  const obs = (p.observations || '').trim();
+  if (obs) {
+    const items = obs.split('\n').map(l => l.trim()).filter(l => l);
+    const canDelObs = userMaster || userRole === 'admin';
+    obsList.innerHTML = items.map((item, i) =>
+      `<div class="obs-item" id="obsitem-${i}">
+        <span class="obs-item-text">${item.startsWith('•') ? item : '• ' + item}</span>
+        ${canDelObs ? `<button class="obs-item-del" onclick="deleteObsItem(${i})" title="Apagar esta observação">✕</button>` : ''}
+      </div>`
+    ).join('');
+    obsWrap.style.display = 'block';
+  } else {
+    obsWrap.style.display = 'none';
+  }
+  openModal('modalObs');
+}
+
+async function loadObsList(obsPath) {
+  const wrap = document.getElementById('obsListWrap');
+  const list = document.getElementById('obsList');
+  if (!window.electronAPI) { wrap.style.display = 'none'; return; }
+
+  try {
+    const res  = await window.electronAPI.readFile(obsPath);
+    const text = (res.content || '').trim();
+    if (!text) { wrap.style.display = 'none'; return; }
+
+    const items = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    list.innerHTML = items.map((item, i) => `
+      <div class="obs-item" id="obsitem-${i}">
+        <span class="obs-item-text">${item.startsWith('•') ? item : '• ' + item}</span>
+        <button class="obs-item-del" onclick="deleteObsItem(${i})" title="Apagar esta observação">✕</button>
+      </div>`).join('');
+    wrap.style.display = 'block';
+  } catch(e) {
+    wrap.style.display = 'none';
+  }
+}
+
+async function deleteObsItem(index) {
+  const p = projects.find(x => x.id === obsTargetId);
+  if (!p) return;
+  const items = (p.observations || '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const removedObs = items.splice(index, 1)[0];
+  p.observations = items.join('\n');
+  // Atualiza visual IMEDIATAMENTE
+  const obsList = document.getElementById('obsList');
+  const obsWrap = document.getElementById('obsListWrap');
+  if (items.length) {
+    obsList.innerHTML = items.map((item, i) =>
+      `<div class="obs-item" id="obsitem-${i}">
+        <span class="obs-item-text">${item.startsWith('•') ? item : '• ' + item}</span>
+        <button class="obs-item-del" onclick="deleteObsItem(${i})" title="Apagar">✕</button>
+      </div>`
+    ).join('');
+    obsWrap.style.display = 'block';
+  } else {
+    obsWrap.style.display = 'none';
+  }
+  refreshObsBtn(p);
+  showToast('🗑 Observação removida');
+  // Salva no Drive em background — sem revert, dado seguro no localStorage
+  saveWithRevert(() => {}, 'deleteObsItem', p);
+}
+
+async function saveObs() {
+  const p    = projects.find(x => x.id === obsTargetId);
+  if (!p) return;
+  const text = document.getElementById('obsText').value.trim();
+  if (!text) { showToast('⚠️ Escreva algo antes de salvar.'); return; }
+
+  const lines = text.split('\n')
+    .map(l => l.trim()).filter(l => l.length > 0)
+    .map(l => l.startsWith('•') ? l : `• ${l}`)
+    .join('\n');
+
+  p.observations = p.observations ? p.observations + '\n' + lines : lines;
+  document.getElementById('obsText').value = '';
+  // Atualiza lista no modal
+  const items = p.observations.split('\n').filter(l => l.trim());
+  const obsList = document.getElementById('obsList');
+  const obsWrap = document.getElementById('obsListWrap');
+  const canDelObs2 = userMaster || userRole === 'admin';
+  obsList.innerHTML = items.map((item, i) =>
+    `<div class="obs-item" id="obsitem-${i}">
+      <span class="obs-item-text">${item}</span>
+      ${canDelObs2 ? `<button class="obs-item-del" onclick="deleteObsItem(${i})" title="Apagar">✕</button>` : ''}
+    </div>`
+  ).join('');
+  obsWrap.style.display = 'block';
+  refreshObsBtn(p);
+  showToast('💾 Observação salva!');
+  // Salva no Drive em background — sem revert, dado seguro no localStorage
+  saveWithRevert(() => {}, 'saveObs', p);
+}
+
+// ══════════════════════════════════════
+// GEOCORRETOR INTEGRATION
+// ══════════════════════════════════════
+function openGeoCorretor(id) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+
+  // Caminhos Drive como arrays JSON — o GeoCorretor buscará os arquivos direto do Drive
+  const driveTxtPath    = JSON.stringify(['GeoProjects', p.folderName, 'Levantamento', 'TXT']);
+  const drivePppPath    = JSON.stringify(['GeoProjects', p.folderName, 'IBGE_PPP']);
+  const driveOutputPath = JSON.stringify(['GeoProjects', p.folderName, 'Levantamento', 'TXT_PPP_CORRIGIDO']);
+
+  if (window.electronAPI) {
+    window.electronAPI.openGeoCorretor({
+      project:         p.id,
+      name:            p.name,
+      folderName:      p.folderName,
+      driveTxtPath,
+      drivePppPath,
+      driveOutputPath,
+      // mantém rootPath local como fallback (caso Drive não esteja conectado)
+      txtPath:         p.rootPath ? joinPath(p.rootPath, 'Levantamento', 'TXT') : '',
+      pppPath:         p.rootPath ? joinPath(p.rootPath, 'IBGE_PPP') : '',
+      outputPath:      p.rootPath ? joinPath(p.rootPath, 'Levantamento', 'TXT_PPP_CORRIGIDO') : '',
+    });
+  } else {
+    const url = `geocorretor.html`
+      + `?project=${encodeURIComponent(p.id)}`
+      + `&name=${encodeURIComponent(p.name)}`
+      + `&driveTxtPath=${encodeURIComponent(driveTxtPath)}`
+      + `&drivePppPath=${encodeURIComponent(drivePppPath)}`
+      + `&driveOutputPath=${encodeURIComponent(driveOutputPath)}`;
+    window.open(url, '_blank');
+  }
+  showToast(`⊕ Abrindo GeoCorretor — ${p.name}`);
+}
+
+function openGeoCorretorStandalone() {
+  if (window.electronAPI) {
+    window.electronAPI.openGeoCorretor({ project: '', name: '', txtPath: '', pppPath: '', outputPath: '' });
+  } else {
+    window.open('geocorretor.html', '_blank');
+  }
+  showToast('⊕ Abrindo GeoCorretor avulso...');
+}
+
+async function gcLoadFiles(p) {
+  const txtPath = `${p.rootPath}/Levantamento/TXT`;
+  const pppPath = `${p.rootPath}/IBGE_PPP`;
+
+  // Load TXT files
+  document.getElementById('gc-txt-list').innerHTML = '<div class="gc-loading">Buscando arquivos...</div>';
+  document.getElementById('gc-ppp-list').innerHTML = '<div class="gc-loading">Buscando arquivos...</div>';
+
+  if (window.electronAPI) {
+    const txtResult = await window.electronAPI.listFiles(txtPath);
+    const pppResult = await window.electronAPI.listFiles(pppPath);
+    gcRenderFileList('gc-txt-list', txtResult.files || [], txtPath, 'txt');
+    gcRenderFileList('gc-ppp-list', pppResult.files || [], pppPath, 'ppp');
+  } else {
+    gcRenderFileList('gc-txt-list', [], txtPath, 'txt');
+    gcRenderFileList('gc-ppp-list', [], pppPath, 'ppp');
+  }
+}
+
+function gcRenderFileList(containerId, files, folderPath, type) {
+  const container = document.getElementById(containerId);
+  const ext = type === 'txt' ? ['.txt', '.csv'] : ['.pdf'];
+  const filtered = files.filter(f => ext.some(e => f.toLowerCase().endsWith(e)));
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="gc-empty">
+        <span>📂</span>
+        <span>Nenhum arquivo encontrado em <em>${folderPath}</em></span>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(f => `
+    <div class="gc-file-item" id="gcfile-${type}-${encodeURIComponent(f)}"
+         onclick="gcSelectFile('${type}','${folderPath.replace(/'/g,"\\'")}','${f.replace(/'/g,"\\'")}')">
+      <div class="gc-file-radio"></div>
+      <span style="font-size:0.9rem">${type === 'txt' ? '📄' : '📕'}</span>
+      <span class="gc-file-name">${f}</span>
+    </div>`).join('');
+}
+
+function gcSelectFile(type, folderPath, fileName) {
+  const fullPath = `${folderPath}/${fileName}`;
+
+  // Deselect all in group
+  document.querySelectorAll(`[id^="gcfile-${type}-"]`).forEach(el => {
+    el.classList.remove('selected', 'selected-ppp');
+  });
+
+  // Select clicked
+  const el = document.getElementById(`gcfile-${type}-${encodeURIComponent(fileName)}`);
+  if (el) el.classList.add(type === 'txt' ? 'selected' : 'selected-ppp');
+
+  if (type === 'txt') gcSelectedTxt = fullPath;
+  else                gcSelectedPpp = fullPath;
+
+  // Enable launch button when at least TXT is selected
+  document.getElementById('gc-launch-btn').disabled = !gcSelectedTxt;
+}
+
+async function gcBrowse(type) {
+  if (window.electronAPI) {
+    const p = projects.find(x => x.id === gcProjectId);
+    if (!p) return;
+    const defaultPath = type === 'txt'
+      ? `${p.rootPath}/Levantamento/TXT`
+      : `${p.rootPath}/IBGE_PPP`;
+    const filters = type === 'txt'
+      ? [{ name: 'Arquivos de pontos', extensions: ['txt','csv','dat','xyz'] }]
+      : [{ name: 'PDF IBGE', extensions: ['pdf'] }];
+
+    const result = await window.electronAPI.openFileDialog({ defaultPath, filters });
+    if (result && result.filePath) {
+      const fullPath = result.filePath;
+      const fileName = fullPath.split(/[\\/]/).pop();
+
+      // Add to list and select it
+      const containerId = type === 'txt' ? 'gc-txt-list' : 'gc-ppp-list';
+      const container   = document.getElementById(containerId);
+
+      // Remove empty state if present
+      const empty = container.querySelector('.gc-empty');
+      if (empty) empty.remove();
+
+      const itemId = `gcfile-${type}-${encodeURIComponent(fileName)}`;
+      if (!document.getElementById(itemId)) {
+        const div = document.createElement('div');
+        div.className = 'gc-file-item';
+        div.id = itemId;
+        div.innerHTML = `
+          <div class="gc-file-radio"></div>
+          <span style="font-size:0.9rem">${type === 'txt' ? '📄' : '📕'}</span>
+          <span class="gc-file-name">${fileName}</span>`;
+        div.onclick = () => gcSelectFile(type, fullPath.replace(/[\\/][^\\/]+$/, ''), fileName);
+        container.appendChild(div);
+      }
+      gcSelectFile(type, fullPath.replace(/[\\/][^\\/]+$/, ''), fileName);
+    }
+  } else {
+    showToast('📂 Disponível na versão desktop (.exe)');
+  }
+}
+
+function launchGeoCorretor() {
+  const p = projects.find(x => x.id === gcProjectId);
+  if (!p || !gcSelectedTxt) return;
+
+  const outputPath = `${p.rootPath}/Levantamento/TXT_PPP_CORRIGIDO`;
+
+  closeModal('modalGeoCorretor');
+
+  if (window.electronAPI) {
+    window.electronAPI.openGeoCorretor({
+      project:    p.id,
+      name:       p.name,
+      inputFile:  gcSelectedTxt,
+      pppFile:    gcSelectedPpp || '',
+      outputPath: outputPath,
+    });
+  } else {
+    const url = `geocorretor.html`
+      + `?project=${encodeURIComponent(p.id)}`
+      + `&name=${encodeURIComponent(p.name)}`
+      + `&inputFile=${encodeURIComponent(gcSelectedTxt)}`
+      + `&pppFile=${encodeURIComponent(gcSelectedPpp || '')}`
+      + `&outputPath=${encodeURIComponent(outputPath)}`;
+    window.open(url, '_blank');
+  }
+  showToast(`⊕ Abrindo GeoCorretor — ${p.name}`);
+}
+
+// ══════════════════════════════════════
+// DELETE
+// ══════════════════════════════════════
+function openDelete(id) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  deleteTargetId = id;
+  document.getElementById('deleteProjectName').textContent = p.name;
+  document.getElementById('deleteAlsoDrive').checked = false;
+  document.getElementById('deleteSenhaInput').value  = '';
+  document.getElementById('deleteSenhaWrap').style.display = 'none';
+  openModal('modalDelete');
+}
+
+function toggleDeleteSenha() {
+  const checked = document.getElementById('deleteAlsoDrive').checked;
+  document.getElementById('deleteSenhaWrap').style.display = checked ? 'block' : 'none';
+  if (checked) setTimeout(() => document.getElementById('deleteSenhaInput')?.focus(), 50);
+}
+
+async function confirmDelete() {
+  if (!deleteTargetId) return;
+  const p          = projects.find(x => x.id === deleteTargetId);
+  const alsoDrive  = document.getElementById('deleteAlsoDrive').checked;
+
+  // Confirma senha master se solicitado apagar do Drive
+  if (alsoDrive) {
+    const senha = document.getElementById('deleteSenhaInput')?.value;
+    if (!senha) {
+      showToast('⚠️ Digite a senha master para confirmar a exclusão do Drive.');
+      document.getElementById('deleteSenhaInput')?.focus();
+      return;
+    }
+    const check = await window.electronAPI.authVerificarSenha(userName, senha);
+    if (!check.valido) {
+      showToast('⚠️ Senha incorreta. Exclusão cancelada.');
+      document.getElementById('deleteSenhaInput')?.focus();
+      return;
+    }
+
+    // Apaga pasta do projeto no Drive
+    if (p?.folderName && window.electronAPI?.driveDeleteProjectFolder) {
+      const res = await window.electronAPI.driveDeleteProjectFolder(p.folderName);
+      if (!res?.success) {
+        showToast(`⚠️ Erro ao apagar pasta do Drive: ${res?.error || 'desconhecido'}`);
+        return;
+      }
+    }
+  }
+
+  projects = projects.filter(x => x.id !== deleteTargetId);
+  await saveData();
+  renderProjects();
+  updateStats();
+  closeModal('modalDelete');
+  const extra = alsoDrive ? ' e arquivos apagados do Drive' : '';
+  showToast(`🗑 Projeto "${p?.name}" removido${extra}`);
+  deleteTargetId = null;
+}
+
+// ══════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════
+// ── Novo Usuário ──
+let newUserRootPath = '';
+
+// ── Alterar Pasta Raiz ──
+ // kept for compat, no longer used
+
+function copyProtocol(protocol) {
+  navigator.clipboard.writeText(protocol).then(() => {
+    showToast(`📋 Protocolo ${protocol} copiado!`);
+  }).catch(() => showToast('⚠️ Não foi possível copiar'));
+}
+
+// ── Gravar projeto.json — só grava se rootPath local existir (legado)
+// Para projetos Drive, os dados ficam apenas no gm_projects.json do Drive
+async function saveProjectFile(p) {
+  if (!window.electronAPI || !p.rootPath) return;
+  // Evita gravar se rootPath parece ser apenas um placeholder (sem letra de drive)
+  if (!p.rootPath.match(/^[A-Za-z]:\\/)) return;
+  const data = {
+    protocol:   p.protocol,
+    name:       p.name,
+    uf:         p.uf,
+    stateName:  p.stateName,
+    city:       p.city,
+    cityCode:   p.cityCode,
+    month:      p.month,
+    year:       p.year,
+    folderName: p.folderName,
+    status:     p.status,
+    osItems:    p.osItems   || [],
+    flowDone:   p.flowDone  || {},
+    createdAt:  p.createdAt,
+  };
+  try {
+    await window.electronAPI.writeFile(
+      p.rootPath + '\\projeto.json',
+      JSON.stringify(data, null, 2)
+    );
+  } catch(e) { console.warn('[saveProjectFile] erro:', e); }
+}
+
+// ── Escanear pasta raiz para reimportar projetos (2 níveis) ──
+async function scanRootFolder(rootPath) {
+  if (!window.electronAPI) { showToast('📂 Disponível na versão desktop'); return; }
+
+  if (!rootPath) {
+    const result = await window.electronAPI.openFolderDialog();
+    if (!result?.folderPath) return;
+    rootPath = result.folderPath;
+  }
+
+  let totalImported = 0, totalSkipped = 0;
+  const users = JSON.parse(localStorage.getItem('gm_users') || '[]');
+
+  try {
+    const level1 = await window.electronAPI.listFolders(rootPath);
+
+    for (const userFolder of (level1.folders || [])) {
+      const userPath     = rootPath + '\\' + userFolder;
+      const level2       = await window.electronAPI.listFolders(userPath);
+      const userProjects = JSON.parse(localStorage.getItem(`gm_projects_${userFolder}`) || '[]');
+      let userImported   = 0;
+
+      for (const projFolder of (level2.folders || [])) {
+        const projPath = userPath + '\\' + projFolder;
+        const jsonPath = projPath + '\\projeto.json';
+        const existsRes = await window.electronAPI.checkFileExists(jsonPath);
+        const exists = existsRes?.exists === true || existsRes === true;
+        if (!exists) { totalSkipped++; continue; }
+
+        try {
+          const res  = await window.electronAPI.readFile(jsonPath);
+          const raw  = res?.content || res;
+          const data = JSON.parse(raw);
+          if (!data.protocol) { totalSkipped++; continue; }
+          if (userProjects.find(p => p.protocol === data.protocol)) { totalSkipped++; continue; }
+
+          userProjects.push({
+            id:         Date.now().toString() + Math.random().toString(36).slice(2),
+            protocol:   data.protocol,
+            name:       data.name       || projFolder,
+            uf:         data.uf         || '',
+            stateName:  data.stateName  || '',
+            city:       data.city       || '',
+            cityCode:   data.cityCode   || '',
+            month:      data.month      || '01',
+            year:       data.year       || new Date().getFullYear().toString(),
+            folderName: data.folderName || projFolder,
+            rootPath:   projPath,
+            status:     data.status     || 'active',
+            osItems:    data.osItems    || [],
+            flowDone:   data.flowDone   || {},
+            createdAt:  data.createdAt  || new Date().toISOString(),
+            folders:    buildFolderStructure(),
+          });
+          userImported++;
+          totalImported++;
+        } catch(e) { totalSkipped++; }
+      }
+
+      // Salva projetos direto na chave do usuário detectado
+      if (userImported > 0) {
+        localStorage.setItem(`gm_projects_${userFolder}`, JSON.stringify(userProjects));
+        if (!users.find(u => u.name === userFolder)) {
+          users.push({ name: userFolder, rootPath: userPath });
+        }
+      }
+    }
+  } catch(e) {
+    showToast('⚠️ Erro ao escanear pasta'); return;
+  }
+
+  if (totalImported > 0) {
+    localStorage.setItem('gm_users', JSON.stringify(users));
+    await saveData();
+    if (document.getElementById('screenMain')?.style.display !== 'none') {
+      renderProjects();
+      updateStats();
+      populateYearFilter();
+    }
+  }
+  closeModal('modalUsuarios');
+  showToast(`✅ ${totalImported} projeto(s) importado(s)${totalSkipped ? ` · ${totalSkipped} ignorado(s)` : ''}`);
+}
+
+// ══════════════════════════════════════
+// MODAL HELPERS
+// ══════════════════════════════════════
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// Modais que NÃO devem fechar ao clicar fora (têm formulário ou ação importante)
+const MODAL_NO_OUTSIDE_CLOSE = new Set([
+  'modalNewProject', 'modalOS', 'modalDuplicate',
+  'modalCompartilhar', 'modalGeoCorretor', 'modalUsuarios',
+  'popupAdicionarUsuario'
+]);
+
+// Fecha ao clicar no overlay apenas para modais simples (confirmação, obs)
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay && !MODAL_NO_OUTSIDE_CLOSE.has(overlay.id)) {
+      overlay.classList.remove('open');
+    }
+  });
+});
+
+// ══════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Salva com revert automático se falhar ────────────────────────
+// revertFn: função que desfaz a mudança visual caso o save falhe
+// label: nome da ação para o log
+// ── Fila de pendências de sincronização ─────────────────────────
+// Salva localmente sempre; tenta Drive em background.
+// Se falhar, entra na fila e retenta automaticamente.
+let _syncPending  = false;
+let _syncRetrying = false;
+
+function saveWithRevert(revertFn, label, projeto) {
+  // Salva no localStorage imediatamente (nunca falha)
+  localStorage.setItem('gm_projects_local_' + userName, JSON.stringify(projects));
+
+  // Se tiver um projeto específico, salva só ele no Firebase (mais rápido)
+  const savePromise = projeto
+    ? saveProjetoIndividual(projeto)
+    : saveData();
+
+  savePromise
+    .then(() => {
+      if (_syncPending) {
+        _syncPending = false;
+        updateSyncIndicator(false);
+        console.log('[sync] Pendências sincronizadas com sucesso');
+      }
+    })
+    .catch(e => {
+      console.warn(`[${label}] falha ao salvar:`, e.message);
+      _syncPending = true;
+      updateSyncIndicator(true);
+    });
+}
+
+function updateSyncIndicator(pending) {
+  let el = document.getElementById('syncIndicator');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'syncIndicator';
+    el.style.cssText = `
+      position:fixed; bottom:16px; right:16px; z-index:9999;
+      font-family:var(--mono); font-size:0.62rem; padding:6px 10px;
+      background:var(--surf2); border:1px solid var(--border);
+      border-radius:6px; display:flex; align-items:center; gap:6px;
+      transition:opacity 0.3s;
+    `;
+    document.body.appendChild(el);
+  }
+  if (pending) {
+    el.innerHTML = '<span style="color:var(--warn)">⟳</span> <span style="color:var(--muted)">Sincronizando...</span>';
+    el.style.opacity = '1';
+  } else {
+    el.innerHTML = '<span style="color:var(--accent)">✓</span> <span style="color:var(--muted)">Sincronizado</span>';
+    el.style.opacity = '1';
+    setTimeout(() => { el.style.opacity = '0'; }, 2000);
+  }
+}
+
+// Tenta reenviar pendências a cada 15 segundos
+setInterval(() => {
+  if (!_syncPending || _syncRetrying) return;
+  _syncRetrying = true;
+  console.log('[sync] Tentando sincronizar pendências...');
+  saveData()
+    .then(() => {
+      _syncPending  = false;
+      _syncRetrying = false;
+      _allProjectsCache = null;
+      updateSyncIndicator(false);
+      console.log('[sync] Pendências sincronizadas!');
+    })
+    .catch(() => {
+      _syncRetrying = false;
+      console.warn('[sync] Ainda sem conexão — tentará novamente em 15s');
+    });
+}, 15000);
+
+// ══════════════════════════════════════
+// START — init() chamado após isPackaged resolver (ver topo do script)
+// ══════════════════════════════════════
+</script>
+</body>
+</html>
