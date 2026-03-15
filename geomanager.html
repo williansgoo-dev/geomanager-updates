@@ -2005,15 +2005,16 @@ async function init() {
     }).catch(() => {});
   }
 
-  // Carrega versão do HTML instalado
+  // Carrega versão do HTML e depois verifica atualização
   if (window.electronAPI?.htmlGetVersaoLocal) {
     window.electronAPI.htmlGetVersaoLocal().then(res => {
       if (res?.versao) _htmlVersao = res.versao;
+    }).finally(() => {
+      setTimeout(() => verificarAtualizacao(false), 3000);
     });
+  } else {
+    setTimeout(() => verificarAtualizacao(false), 3000);
   }
-
-  // Verifica atualização do app (.exe) em background
-  setTimeout(() => verificarAtualizacao(false), 3000);
 
   // Verifica e baixa HTML atualizado em background
   setTimeout(() => verificarHtmlUpdate(), 5000);
@@ -2407,7 +2408,10 @@ async function verificarAtualizacao(manual = false) {
         const htmlInfo = _htmlVersao && _htmlVersao !== APP_VERSION ? ` · interface v${_htmlVersao}` : '';
         btn.title = `GeoManager v${APP_VERSION}${htmlInfo} — você está atualizado ✅${notas ? '\nÚltima atualização: ' + notas : ''}`;
       }
-      if (manual) showToast(`✅ GeoManager v${APP_VERSION} — você está atualizado!`);
+      if (manual) {
+        const htmlInfo = _htmlVersao && _htmlVersao !== APP_VERSION ? ` · interface v${_htmlVersao}` : '';
+        showToast(`✅ GeoManager v${APP_VERSION}${htmlInfo} — você está atualizado!`);
+      }
     }
   } catch(e) {
     if (manual) showToast('⚠️ Não foi possível verificar atualizações.');
