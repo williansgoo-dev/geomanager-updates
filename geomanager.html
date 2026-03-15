@@ -2540,7 +2540,7 @@ async function adicionarUsuario() {
 
   if (!login || !nome || !senha) { showToast('⚠️ Preencha todos os campos.'); return; }
 
-  const res = await window.electronAPI.authAdicionarUsuario(login, senha, nome, role, userRole);
+  const res = await window.electronAPI.authAdicionarUsuario(login, senha, nome, role, userMaster ? 'master' : userRole);
   if (res.success) {
     showToast('✓ Usuário adicionado com sucesso!');
     closeModal('popupAdicionarUsuario');
