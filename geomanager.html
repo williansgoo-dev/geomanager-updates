@@ -2408,9 +2408,10 @@ async function verificarAtualizacao(manual = false) {
         const htmlInfo = _htmlVersao && _htmlVersao !== APP_VERSION ? ` · interface v${_htmlVersao}` : '';
         btn.title = `GeoManager v${APP_VERSION}${htmlInfo} — você está atualizado ✅${notas ? '\nÚltima atualização: ' + notas : ''}`;
       }
+      // Toast mostra versão da interface se disponível, senão versão do exe
+      const versaoExibida = _htmlVersao || APP_VERSION;
       if (manual) {
-        const htmlInfo = _htmlVersao && _htmlVersao !== APP_VERSION ? ` · interface v${_htmlVersao}` : '';
-        showToast(`✅ GeoManager v${APP_VERSION}${htmlInfo} — você está atualizado!`);
+        showToast(`✅ v${versaoExibida} — você está atualizado!`);
       }
     }
   } catch(e) {
