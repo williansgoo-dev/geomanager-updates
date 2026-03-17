@@ -4412,6 +4412,12 @@ async function confirmDelete() {
   }
 
   projects = projects.filter(x => x.id !== deleteTargetId);
+  // Atualiza cache local imediatamente
+  localStorage.setItem('gm_projects_local_' + userName, JSON.stringify(projects));
+  // Apaga do Firebase explicitamente — saveData só faz merge, não deleta
+  if (window.electronAPI?.firebaseDeleteProjeto) {
+    await window.electronAPI.firebaseDeleteProjeto(deleteTargetId);
+  }
   await saveData();
   renderProjects();
   updateStats();
