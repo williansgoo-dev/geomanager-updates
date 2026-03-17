@@ -1770,7 +1770,6 @@ function setStatus(id, status) {
   if (!p) return;
   // Atualiza visual IMEDIATAMENTE
   p.status = status;
-  saveProjectFile(p);
   if (status === 'finalizado' && currentTab !== 'concluidos') {
     switchTab('concluidos');
     showToast(`✅ Projeto movido para "Concluídos"`);
@@ -4442,34 +4441,7 @@ function copyProtocol(protocol) {
   }).catch(() => showToast('⚠️ Não foi possível copiar'));
 }
 
-// ── Gravar projeto.json — só grava se rootPath local existir (legado)
-// Para projetos Drive, os dados ficam apenas no gm_projects.json do Drive
-async function saveProjectFile(p) {
-  if (!window.electronAPI || !p.rootPath) return;
-  // Evita gravar se rootPath parece ser apenas um placeholder (sem letra de drive)
-  if (!p.rootPath.match(/^[A-Za-z]:\\/)) return;
-  const data = {
-    protocol:   p.protocol,
-    name:       p.name,
-    uf:         p.uf,
-    stateName:  p.stateName,
-    city:       p.city,
-    cityCode:   p.cityCode,
-    month:      p.month,
-    year:       p.year,
-    folderName: p.folderName,
-    status:     p.status,
-    osItems:    p.osItems   || [],
-    flowDone:   p.flowDone  || {},
-    createdAt:  p.createdAt,
-  };
-  try {
-    await window.electronAPI.writeFile(
-      p.rootPath + '\\projeto.json',
-      JSON.stringify(data, null, 2)
-    );
-  } catch(e) { console.warn('[saveProjectFile] erro:', e); }
-}
+
 
 // ── Escanear pasta raiz para reimportar projetos (2 níveis) ──
 async function scanRootFolder(rootPath) {
