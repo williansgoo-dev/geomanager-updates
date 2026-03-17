@@ -4553,6 +4553,21 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
   });
 });
 
+// Esc fecha o modal aberto mais recente
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  // Fecha modal dinâmico primeiro (projetosOcultos etc)
+  const dinamico = document.getElementById('modalProjetosOcultos');
+  if (dinamico) { dinamico.remove(); return; }
+  // Fecha o primeiro modal aberto que não seja protegido
+  const abertos = Array.from(document.querySelectorAll('.modal-overlay.open'));
+  if (abertos.length === 0) return;
+  const ultimo = abertos[abertos.length - 1];
+  if (!MODAL_NO_OUTSIDE_CLOSE.has(ultimo.id)) {
+    ultimo.classList.remove('open');
+  }
+});
+
 // ══════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════
@@ -4601,6 +4616,14 @@ function saveWithRevert(revertFn, label, projeto) {
       }
     });
 }
+
+// Avisa ao fechar janela se há pendências
+window.addEventListener('beforeunload', e => {
+  if (_syncPending) {
+    e.preventDefault();
+    e.returnValue = 'Há alterações não sincronizadas. Deseja sair mesmo assim?';
+  }
+});
 
 function updateSyncIndicator(pending) {
   let el = document.getElementById('syncIndicator');
