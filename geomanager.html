@@ -3838,9 +3838,11 @@ async function uploadParaPasta(e, drivePathJson, folderName, projectId, hasChild
   let drivePath;
   try { drivePath = JSON.parse(drivePathJson); } catch(_) { drivePath = [drivePathJson]; }
 
+  // Busca o projeto no início para uso em toda a função
+  const p = projects.find(x => x.id === projectId);
+
   // Se tem subpastas, mostra modal de seleção em vez de upload direto
   if (hasChildren) {
-    const p = projects.find(x => x.id === projectId);
     if (!p) return;
     // Encontra os filhos desta pasta na estrutura do projeto
     function findFolder(items, name) {
