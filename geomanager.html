@@ -2394,12 +2394,28 @@ const APP_VERSION = '1.0.0';
 let _htmlVersao = ''; // versão do HTML instalado localmente
 
 async function verificarAtualizacao(manual = false) {
+  const btn = document.getElementById('btnUpdate');
+
+  // Mostra "verificando..." ao clicar manualmente
+  if (manual && btn) {
+    btn.textContent = '🔄';
+    btn.title = 'Verificando atualizações...';
+    btn.style.opacity = '0.6';
+    btn.disabled = true;
+  }
+
   try {
     const res         = await window.electronAPI.firebaseGetVersao();
     const versaoAtual = res?.versao_atual || '';
     const urlDownload = res?.url_download || '';
     const notas       = res?.notas || '';
-    const btn         = document.getElementById('btnUpdate');
+
+    // Restaura botão
+    if (btn) {
+      btn.textContent = '🔔';
+      btn.style.opacity = '';
+      btn.disabled = false;
+    }
 
     if (!versaoAtual) {
       if (manual) showToast('⚠️ Não foi possível verificar atualizações.');
@@ -2408,7 +2424,7 @@ async function verificarAtualizacao(manual = false) {
 
     if (versaoAtual !== APP_VERSION) {
       if (btn) {
-        btn.classList.add('btn-update-badge', 'has-update', 'checked');
+        btn.classList.add('btn-update-badge', 'has-update');
         btn.classList.remove('checked');
         btn.title = `🔔 Nova versão ${versaoAtual} disponível${notas ? '\n' + notas : ''}\nClique para ver`;
       }
@@ -2426,17 +2442,24 @@ async function verificarAtualizacao(manual = false) {
     } else {
       if (btn) {
         btn.style.display = '';
-        btn.classList.remove('btn-update-badge');
+        btn.classList.remove('btn-update-badge', 'has-update');
+        btn.classList.add('checked');
         const htmlInfo = _htmlVersao && _htmlVersao !== APP_VERSION ? ` · interface v${_htmlVersao}` : '';
         btn.title = `GeoManager v${APP_VERSION}${htmlInfo} — você está atualizado ✅${notas ? '\nÚltima atualização: ' + notas : ''}`;
       }
-      // Toast mostra versão da interface se disponível, senão versão do exe
-      const versaoExibida = _htmlVersao || APP_VERSION;
+      // Só mostra toast se foi clique manual
       if (manual) {
+        const versaoExibida = _htmlVersao || APP_VERSION;
         showToast(`✅ v${versaoExibida} — você está atualizado!`);
       }
     }
   } catch(e) {
+    // Restaura botão em caso de erro
+    if (btn) {
+      btn.textContent = '🔔';
+      btn.style.opacity = '';
+      btn.disabled = false;
+    }
     if (manual) showToast('⚠️ Não foi possível verificar atualizações.');
   }
 }
@@ -3276,11 +3299,21 @@ function renderProjects() {
   document.getElementById('projectCount').textContent = `${filtered.length} projeto${filtered.length !== 1 ? 's' : ''}`;
 
   if (filtered.length === 0) {
-    grid.innerHTML = `<div class="empty-state">
-      <span class="big">🗂️</span>
-      Nenhum projeto encontrado.<br>
-      ${projects.length === 0 ? 'Clique em <strong>+ Novo Projeto</strong> para começar.' : 'Tente ajustar os filtros.'}
-    </div>`;
+    // Verifica se está offline
+    const offline = !navigator.onLine;
+    if (projects.length === 0 && offline) {
+      grid.innerHTML = `<div class="empty-state">
+        <span class="big">📡</span>
+        <span style="color:var(--warn);font-size:0.85rem;font-weight:600;">Sem conexão com a internet</span><br>
+        <span style="font-size:0.75rem;">Os projetos aparecerão assim que a conexão for restabelecida.</span>
+      </div>`;
+    } else {
+      grid.innerHTML = `<div class="empty-state">
+        <span class="big">🗂️</span>
+        Nenhum projeto encontrado.<br>
+        ${projects.length === 0 ? 'Clique em <strong>+ Novo Projeto</strong> para começar.' : 'Tente ajustar os filtros.'}
+      </div>`;
+    }
     return;
   }
 
@@ -4661,6 +4694,14 @@ window.addEventListener('online',  () => {
         updateSyncIndicator(false);
       })
       .catch(() => {});
+  }
+  // Recarrega projetos se estava sem internet
+  if (projects.length === 0) {
+    loadData().then(() => {
+      populateYearFilter();
+      renderProjects();
+      updateStats();
+    }).catch(() => {});
   }
 });
 
