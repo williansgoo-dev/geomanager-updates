@@ -1553,7 +1553,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
         <div class="gc-section-header">
           <div class="gc-section-label">
             <span class="gc-path-badge ppp">PPP</span>
-            IBGE PPP — PDF de correção
+            IBGE PPP — TXT ou PDF de correção
           </div>
           <button class="gc-browse-btn" onclick="gcBrowse('ppp')" title="Buscar em outro local">🗁 Buscar</button>
         </div>
@@ -2655,7 +2655,7 @@ const UPLOAD_DESTINOS = {
     { label: 'Aerolevantamento',  path: ['Levantamento','Aerolevantamento'],  exts: ['las','laz','tif','tiff','xyz','e57'] },
   ],
   ppp: [
-    { label: 'IBGE_PPP', path: ['IBGE_PPP'], exts: ['pdf'], direto: true },
+    { label: 'IBGE_PPP', path: ['IBGE_PPP'], exts: ['pdf','txt'], direto: true },
   ],
   entregas: [
     { label: 'CAD_PRIMITIVO',  path: ['CAD_GIS','CAD_PRIMITIVO'],  exts: ['dwg','dxf'] },
@@ -3418,7 +3418,7 @@ function renderProjects() {
               upload
             </button>
           </div>
-          <div class="flow-step" id="flow-ppp-${p.id}" title="Automático: PDF na pasta IBGE_PPP">
+          <div class="flow-step" id="flow-ppp-${p.id}" title="Automático: TXT ou PDF na pasta IBGE_PPP">
             <div class="flow-step-top"><span class="flow-dot"></span><span class="flow-step-label">PPP IBGE</span></div>
             <div class="flow-step-sub" style="visibility:hidden;">·</div>
             <button class="flow-upload-btn" onclick="event.stopPropagation();abrirUploadDest('${p.id}','ppp')" title="Enviar PDF do IBGE">
@@ -3873,7 +3873,7 @@ async function uploadParaPasta(e, drivePathJson, folderName, projectId, hasChild
     'GNSS_BASE':            null, // aceita tudo
     'GNSS_ROVER':           null,
     'RINEX':                ['rnx','obs','22o','23o','24o','25o','nav','zip'],
-    'IBGE_PPP':             ['pdf'],
+    'IBGE_PPP':             ['pdf','txt'],
     'TXT':                  ['txt','csv'],
     'TXT_PPP_CORRIGIDO':    ['txt','csv'],
     'Aerolevantamento':     ['las','laz','tif','tiff','xyz','e57'],
@@ -4282,7 +4282,7 @@ async function gcLoadFiles(p) {
 
 function gcRenderFileList(containerId, files, folderPath, type) {
   const container = document.getElementById(containerId);
-  const ext = type === 'txt' ? ['.txt', '.csv'] : ['.pdf'];
+  const ext = type === 'txt' ? ['.txt', '.csv'] : ['.pdf', '.txt'];
   const filtered = files.filter(f => ext.some(e => f.toLowerCase().endsWith(e)));
 
   if (filtered.length === 0) {
