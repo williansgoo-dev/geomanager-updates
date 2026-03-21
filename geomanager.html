@@ -1034,6 +1034,27 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
 </head>
 <body>
 
+<!-- ══ MODAL: CONFIRMAR EXCLUSÃO DE ARQUIVO DO DRIVE ══ -->
+<div class="modal-overlay" id="modalDriveDelete">
+  <div class="modal-box" style="max-width:400px;padding:28px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <span style="font-size:1.4rem;">🗑</span>
+      <div class="modal-title" style="margin-bottom:0;color:var(--danger);">Apagar Arquivo</div>
+    </div>
+    <div id="driveDeleteFileName" style="font-size:0.82rem;color:var(--text);background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-family:var(--mono);word-break:break-all;"></div>
+    <div style="font-size:0.78rem;color:var(--muted);margin-bottom:16px;">Esta ação é <strong style="color:var(--danger);">irreversível</strong>. Confirme sua senha de master para prosseguir:</div>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label class="f-label">Senha Master</label>
+      <input class="f-input" type="password" id="driveDeleteSenha" placeholder="••••••••" style="margin-bottom:0;">
+    </div>
+    <div id="driveDeleteError" style="font-size:0.75rem;color:var(--danger);min-height:16px;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn-cancel" onclick="closeModal('modalDriveDelete')">Cancelar</button>
+      <button class="btn-confirm" style="background:var(--danger);border-color:var(--danger);" onclick="confirmarApagarArquivoDrive()">Apagar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MODAL: VISUALIZADOR DE PASTA DO DRIVE ══ -->
 <div class="modal-overlay" id="modalDriveFolder">
   <div class="modal-box" style="max-width:640px;padding:0;overflow:hidden;max-height:88vh;display:flex;flex-direction:column;">
@@ -1194,7 +1215,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
   <div class="modal-box" style="max-width:380px;padding:24px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
       <div class="modal-title" style="margin-bottom:0;">+ Adicionar Usuário</div>
-      <button class="modal-close" onclick="closeModal('popupAdicionarUsuario', 'modalDriveFolder')">✕</button>
+      <button class="modal-close" onclick="closeModal('popupAdicionarUsuario', 'modalDriveFolder', 'modalDriveDelete')">✕</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <div>
@@ -1218,7 +1239,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:18px;">
-      <button class="btn-cancel" style="flex:1;" onclick="closeModal('popupAdicionarUsuario', 'modalDriveFolder')">Cancelar</button>
+      <button class="btn-cancel" style="flex:1;" onclick="closeModal('popupAdicionarUsuario', 'modalDriveFolder', 'modalDriveDelete')">Cancelar</button>
       <button class="btn-confirm" style="flex:1;" onclick="adicionarUsuario()">+ Adicionar</button>
     </div>
   </div>
@@ -2678,7 +2699,7 @@ function abrirPopupAdicionarUsuario() {
   // Esconde opção Admin para não-master
   const optAdmin = document.getElementById('optAdmin');
   if (optAdmin) optAdmin.style.display = userMaster ? '' : 'none';
-  openModal('popupAdicionarUsuario', 'modalDriveFolder');
+  openModal('popupAdicionarUsuario', 'modalDriveFolder', 'modalDriveDelete');
 }
 
 async function adicionarUsuario() {
@@ -2692,7 +2713,7 @@ async function adicionarUsuario() {
   const res = await window.electronAPI.authAdicionarUsuario(login, senha, nome, role, userMaster ? 'master' : userRole);
   if (res.success) {
     showToast('✓ Usuário adicionado com sucesso!');
-    closeModal('popupAdicionarUsuario', 'modalDriveFolder');
+    closeModal('popupAdicionarUsuario', 'modalDriveFolder', 'modalDriveDelete');
     await carregarUsuarios();
   } else {
     showToast('⚠️ ' + res.error);
@@ -3927,9 +3948,20 @@ function renderDriveBreadcrumb() {
     const pathTo  = [_driveFolderPath[0], ...parts.slice(0, i + 1)];
     return isLast
       ? `<span style="color:var(--text);">${part}</span>`
-      : `<span style="cursor:pointer;color:var(--accent);" onclick="driveFolderNavTo(${JSON.stringify(pathTo)})">${part}</span>
+      : `<span style="cursor:pointer;color:var(--accent);"
+           data-navpath='${JSON.stringify(pathTo).replace(/'/g,"&apos;")}'
+           onclick="driveFolderNavToBtn(this)">${part}</span>
          <span style="opacity:0.4;margin:0 2px;">›</span>`;
   }).join('');
+}
+
+function driveFolderNavToBtn(el) {
+  const pathJson = el.dataset.navpath?.replace(/&apos;/g, "'");
+  if (!pathJson) return;
+  try {
+    const path = JSON.parse(pathJson);
+    driveFolderNavTo(path);
+  } catch(e) { console.error('driveFolderNavToBtn:', e); }
 }
 
 async function driveFolderNavTo(path) {
@@ -3993,7 +4025,9 @@ async function driveListarArquivos(drivePath) {
 
     // Renderiza pastas primeiro
     const foldersHtml = folders.map(f => `
-      <div class="drive-file-item" style="cursor:pointer;" onclick="driveFolderNavTo(${JSON.stringify([...drivePath, f.name])})"
+      <div class="drive-file-item" style="cursor:pointer;"
+        data-navpath='${JSON.stringify([...drivePath, f.name]).replace(/'/g,"&apos;")}'
+        onclick="driveFolderNavToBtn(this)"
         onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background=''">
         <span class="drive-file-icon">📁</span>
         <span class="drive-file-name" style="color:var(--accent2);">${f.name}</span>
@@ -4010,6 +4044,7 @@ async function driveListarArquivos(drivePath) {
         <span class="drive-file-size">${formatFileSize(f.size)}</span>
         <span class="drive-file-date">${formatFileDate(f.modifiedTime)}</span>
         <button class="drive-file-dl" onclick="driveDownloadArquivo(${i})" title="Baixar">⬇</button>
+        ${userMaster ? `<button class="drive-file-dl" onclick="apagarArquivoDrive(${i})" title="Apagar arquivo" style="color:var(--danger);border-color:rgba(255,77,77,0.3);" onmouseover="this.style.borderColor='var(--danger)'" onmouseout="this.style.borderColor='rgba(255,77,77,0.3)'">🗑</button>` : ''}
       </div>`).join('');
 
     items.innerHTML = foldersHtml + (folders.length && files.length ? `<div style="height:1px;background:var(--border);margin:4px 0;"></div>` : '') + filesHtml;
@@ -4025,7 +4060,58 @@ async function driveListarArquivos(drivePath) {
   }
 }
 
-async function driveDownloadArquivo(index) {
+let _driveDeleteIndex = null;
+
+function apagarArquivoDrive(index) {
+  const file = _driveFolderFiles[index];
+  if (!file) return;
+  _driveDeleteIndex = index;
+  document.getElementById('driveDeleteFileName').textContent = file.name;
+  document.getElementById('driveDeleteSenha').value = '';
+  document.getElementById('driveDeleteError').textContent = '';
+  document.getElementById('modalDriveDelete').classList.add('open');
+  setTimeout(() => document.getElementById('driveDeleteSenha').focus(), 100);
+}
+
+async function confirmarApagarArquivoDrive() {
+  const senha = document.getElementById('driveDeleteSenha').value;
+  if (!senha) {
+    document.getElementById('driveDeleteError').textContent = 'Informe a senha.';
+    return;
+  }
+
+  // Verifica senha do master
+  const ok = await window.electronAPI.authVerificarSenha(userName, senha);
+  if (!ok?.valido) {
+    document.getElementById('driveDeleteError').textContent = 'Senha incorreta.';
+    document.getElementById('driveDeleteSenha').value = '';
+    document.getElementById('driveDeleteSenha').focus();
+    return;
+  }
+
+  const file = _driveFolderFiles[_driveDeleteIndex];
+  if (!file) return;
+
+  closeModal('modalDriveDelete');
+  showToast(`🗑 Apagando ${file.name}...`);
+
+  try {
+    const res = await window.electronAPI.driveDeleteFile(file.id);
+    if (res?.success) {
+      showToast(`✓ ${file.name} apagado.`);
+      // Remove da lista local e re-renderiza
+      _driveFolderFiles.splice(_driveDeleteIndex, 1);
+      await driveListarArquivos(_driveFolderPath);
+      if (_driveFolderProject) await refreshFileCounts(_driveFolderProject);
+    } else {
+      showToast(`⚠️ Erro ao apagar: ${res?.error || 'tente novamente'}`);
+    }
+  } catch(e) {
+    showToast('⚠️ Erro: ' + e.message);
+  }
+}
+
+
   const file = _driveFolderFiles[index];
   if (!file || !_driveFolderPath) return;
   showToast(`⬇ Baixando ${file.name}...`);
@@ -4840,7 +4926,7 @@ function closeModal(id) {
 const MODAL_NO_OUTSIDE_CLOSE = new Set([
   'modalNewProject', 'modalOS', 'modalDuplicate',
   'modalCompartilhar', 'modalGeoCorretor', 'modalUsuarios',
-  'popupAdicionarUsuario', 'modalDriveFolder'
+  'popupAdicionarUsuario', 'modalDriveFolder', 'modalDriveDelete'
 ]);
 
 // Fecha ao clicar no overlay apenas para modais simples (confirmação, obs)
