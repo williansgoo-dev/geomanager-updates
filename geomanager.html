@@ -1035,7 +1035,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
 <body>
 
 <!-- ══ MODAL: CONFIRMAR EXCLUSÃO DE ARQUIVO DO DRIVE ══ -->
-<div class="modal-overlay" id="modalDriveDelete">
+<div class="modal-overlay" id="modalDriveDelete" style="z-index:600;">
   <div class="modal-box" style="max-width:400px;padding:28px;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
       <span style="font-size:1.4rem;">🗑</span>
@@ -1069,7 +1069,12 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
           <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
           <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
         </svg>
-        <div id="driveFolderTitle" style="font-size:0.88rem;font-weight:700;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Pasta</div>
+        <button id="btnDriveBack" onclick="driveFolderVoltar()"
+          title="Voltar para pasta anterior"
+          style="display:none;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.75rem;flex-shrink:0;transition:all 0.15s;"
+          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">‹ Voltar</button>
+      <div id="driveFolderTitle" style="font-size:0.88rem;font-weight:700;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Pasta</div>
         <button onclick="driveUploadToCurrentFolder()" title="Enviar arquivo para esta pasta"
           style="display:flex;align-items:center;gap:5px;font-size:0.72rem;background:var(--accent);color:#000;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-weight:600;flex-shrink:0;">
           ⬆ Upload
@@ -3903,10 +3908,26 @@ function renderTree(items, depth, projectId, basePath, drivePathArr) {
 
 // Abre pasta diretamente no Google Drive pelo browser
 // ── Variáveis do visualizador de pasta Drive ──────────────────────
-let _driveFolderPath      = null; // caminho atual no Drive
-let _driveFolderRootPath  = null; // caminho raiz (onde o usuário clicou)
-let _driveFolderProject   = null; // projeto atual
-let _driveFolderFiles     = [];   // arquivos listados
+let _driveFolderPath      = null;
+let _driveFolderRootPath  = null;
+let _driveFolderProject   = null;
+let _driveFolderFiles     = [];
+let _driveFolderHistory   = [];
+
+function _driveUpdateBackBtn() {
+  const btn = document.getElementById('btnDriveBack');
+  if (btn) btn.style.display = _driveFolderHistory.length > 0 ? 'block' : 'none';
+}
+
+async function driveFolderVoltar() {
+  if (!_driveFolderHistory.length) return;
+  const anterior = _driveFolderHistory.pop();
+  _driveFolderPath = anterior;
+  document.getElementById('driveFolderTitle').textContent = anterior[anterior.length - 1];
+  renderDriveBreadcrumb();
+  _driveUpdateBackBtn();
+  await driveListarArquivos(anterior);
+}
 
 function formatFileSize(bytes) {
   if (!bytes) return '—';
@@ -3965,9 +3986,12 @@ function driveFolderNavToBtn(el) {
 }
 
 async function driveFolderNavTo(path) {
+  // Salva caminho atual no histórico antes de navegar
+  if (_driveFolderPath) _driveFolderHistory.push(_driveFolderPath);
   _driveFolderPath = path;
   document.getElementById('driveFolderTitle').textContent = path[path.length - 1];
   renderDriveBreadcrumb();
+  _driveUpdateBackBtn();
   await driveListarArquivos(path);
 }
 
@@ -3983,6 +4007,7 @@ async function abrirPastaNoGDrive(e, el) {
   _driveFolderPath      = drivePath;
   _driveFolderRootPath  = drivePath;
   _driveFolderProject   = projectId;
+  _driveFolderHistory   = []; // limpa histórico ao abrir nova pasta
 
   document.getElementById('driveFolderTitle').textContent = drivePath[drivePath.length - 1];
 
@@ -3993,7 +4018,7 @@ async function abrirPastaNoGDrive(e, el) {
   document.getElementById('driveFolderCount').textContent     = '—';
   document.getElementById('btnDriveFolderDownload').style.display = 'none';
   document.getElementById('modalDriveFolder').classList.add('open');
-
+  _driveUpdateBackBtn();
   renderDriveBreadcrumb();
   await driveListarArquivos(drivePath);
 }
@@ -4037,15 +4062,33 @@ async function driveListarArquivos(drivePath) {
       </div>`).join('');
 
     // Renderiza arquivos
-    const filesHtml = files.map((f, i) => `
+    // Busca metadados de upload no Firebase para os arquivos listados
+    let uploadMeta = {};
+    if (files.length > 0 && window.electronAPI?.firebaseGetUploadMetaBatch) {
+      try {
+        const ids = files.map(f => f.id).filter(Boolean);
+        const metaRes = await window.electronAPI.firebaseGetUploadMetaBatch(ids);
+        uploadMeta = metaRes?.meta || {};
+      } catch(e) {}
+    }
+
+    const filesHtml = files.map((f, i) => {
+      const meta      = uploadMeta[f.id] || {};
+      const uploader  = meta.uploadedByNome || meta.uploadedBy || '';
+      const uploaderEl = uploader
+        ? `<span style="font-size:0.6rem;font-family:var(--mono);color:var(--accent);opacity:0.8;flex-shrink:0;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="Enviado por ${uploader}">👤 ${uploader}</span>`
+        : '';
+      return `
       <div class="drive-file-item">
         <span class="drive-file-icon">${getDriveFileIcon(f.name)}</span>
         <span class="drive-file-name" title="${f.name}">${f.name}</span>
+        ${uploaderEl}
         <span class="drive-file-size">${formatFileSize(f.size)}</span>
         <span class="drive-file-date">${formatFileDate(f.modifiedTime)}</span>
         <button class="drive-file-dl" onclick="driveDownloadArquivo(${i})" title="Baixar">⬇</button>
         ${userMaster ? `<button class="drive-file-dl" onclick="apagarArquivoDrive(${i})" title="Apagar arquivo" style="color:var(--danger);border-color:rgba(255,77,77,0.3);" onmouseover="this.style.borderColor='var(--danger)'" onmouseout="this.style.borderColor='rgba(255,77,77,0.3)'">🗑</button>` : ''}
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     items.innerHTML = foldersHtml + (folders.length && files.length ? `<div style="height:1px;background:var(--border);margin:4px 0;"></div>` : '') + filesHtml;
 
@@ -4099,7 +4142,10 @@ async function confirmarApagarArquivoDrive() {
     const res = await window.electronAPI.driveDeleteFile(file.id);
     if (res?.success) {
       showToast(`✓ ${file.name} apagado.`);
-      // Remove da lista local e re-renderiza
+      // Remove metadado do Firebase em background
+      if (file.id && window.electronAPI?.firebaseDeleteUploadMeta) {
+        window.electronAPI.firebaseDeleteUploadMeta(file.id).catch(() => {});
+      }
       _driveFolderFiles.splice(_driveDeleteIndex, 1);
       await driveListarArquivos(_driveFolderPath);
       if (_driveFolderProject) await refreshFileCounts(_driveFolderProject);
