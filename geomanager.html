@@ -4111,7 +4111,7 @@ async function confirmarApagarArquivoDrive() {
   }
 }
 
-
+async function driveDownloadArquivo(index) {
   const file = _driveFolderFiles[index];
   if (!file || !_driveFolderPath) return;
   showToast(`⬇ Baixando ${file.name}...`);
