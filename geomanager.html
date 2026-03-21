@@ -1038,24 +1038,25 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
 <div class="modal-overlay" id="modalDriveFolder">
   <div class="modal-box" style="max-width:640px;padding:0;overflow:hidden;max-height:88vh;display:flex;flex-direction:column;">
     <!-- Header -->
-    <div style="display:flex;align-items:center;gap:10px;padding:18px 22px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <svg width="18" height="18" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-        <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
-        <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0-1.2 4.5h27.5z" fill="#00ac47"/>
-        <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
-        <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
-        <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
-        <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
-      </svg>
-      <div style="flex:1;min-width:0;">
-        <div id="driveFolderTitle" style="font-size:0.88rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Pasta</div>
-        <div id="driveFolderPath" style="font-size:0.62rem;font-family:var(--mono);color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+    <div style="padding:14px 22px 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <svg width="16" height="16" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+          <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+          <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0-1.2 4.5h27.5z" fill="#00ac47"/>
+          <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
+          <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+          <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
+          <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+        </svg>
+        <div id="driveFolderTitle" style="font-size:0.88rem;font-weight:700;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Pasta</div>
+        <button onclick="driveUploadToCurrentFolder()" title="Enviar arquivo para esta pasta"
+          style="display:flex;align-items:center;gap:5px;font-size:0.72rem;background:var(--accent);color:#000;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-weight:600;flex-shrink:0;">
+          ⬆ Upload
+        </button>
+        <button class="modal-close" onclick="closeModal('modalDriveFolder')" style="flex-shrink:0;">✕</button>
       </div>
-      <button onclick="driveUploadToCurrentFolder()" title="Enviar arquivo para esta pasta"
-        style="display:flex;align-items:center;gap:5px;font-size:0.72rem;background:var(--accent);color:#000;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-weight:600;flex-shrink:0;">
-        ⬆ Upload
-      </button>
-      <button class="modal-close" onclick="closeModal('modalDriveFolder')" style="flex-shrink:0;">✕</button>
+      <!-- Breadcrumb de navegação -->
+      <div id="driveBreadcrumb" style="display:flex;align-items:center;flex-wrap:wrap;gap:2px;font-size:0.62rem;font-family:var(--mono);color:var(--muted);"></div>
     </div>
 
     <!-- Lista de arquivos -->
@@ -3881,9 +3882,10 @@ function renderTree(items, depth, projectId, basePath, drivePathArr) {
 
 // Abre pasta diretamente no Google Drive pelo browser
 // ── Variáveis do visualizador de pasta Drive ──────────────────────
-let _driveFolderPath    = null; // caminho atual no Drive
-let _driveFolderProject = null; // projeto atual
-let _driveFolderFiles   = [];   // arquivos listados
+let _driveFolderPath      = null; // caminho atual no Drive
+let _driveFolderRootPath  = null; // caminho raiz (onde o usuário clicou)
+let _driveFolderProject   = null; // projeto atual
+let _driveFolderFiles     = [];   // arquivos listados
 
 function formatFileSize(bytes) {
   if (!bytes) return '—';
@@ -3911,8 +3913,168 @@ function getDriveFileIcon(name) {
     las: '☁️', laz: '☁️',
     tif: '🗾', tiff: '🗾',
   };
-  return icons[ext] || '📁';
+  return icons[ext] || '📄';
 }
+
+function renderDriveBreadcrumb() {
+  const crumb = document.getElementById('driveBreadcrumb');
+  if (!crumb || !_driveFolderPath) return;
+
+  // Mostra apenas a partir do folderName do projeto (índice 1)
+  const parts = _driveFolderPath.slice(1); // remove 'GeoProjects'
+  crumb.innerHTML = parts.map((part, i) => {
+    const isLast  = i === parts.length - 1;
+    const pathTo  = [_driveFolderPath[0], ...parts.slice(0, i + 1)];
+    return isLast
+      ? `<span style="color:var(--text);">${part}</span>`
+      : `<span style="cursor:pointer;color:var(--accent);" onclick="driveFolderNavTo(${JSON.stringify(pathTo)})">${part}</span>
+         <span style="opacity:0.4;margin:0 2px;">›</span>`;
+  }).join('');
+}
+
+async function driveFolderNavTo(path) {
+  _driveFolderPath = path;
+  document.getElementById('driveFolderTitle').textContent = path[path.length - 1];
+  renderDriveBreadcrumb();
+  await driveListarArquivos(path);
+}
+
+async function abrirPastaNoGDrive(e, el) {
+  e.stopPropagation();
+  const drivePathJson = el.dataset.drivepath?.replace(/&apos;/g, "'");
+  const projectId     = el.dataset.projectid;
+  if (!drivePathJson) return;
+
+  let drivePath;
+  try { drivePath = JSON.parse(drivePathJson); } catch(_) { return; }
+
+  _driveFolderPath      = drivePath;
+  _driveFolderRootPath  = drivePath;
+  _driveFolderProject   = projectId;
+
+  document.getElementById('driveFolderTitle').textContent = drivePath[drivePath.length - 1];
+
+  // Mostra modal com loading
+  document.getElementById('driveFolderLoading').style.display = 'flex';
+  document.getElementById('driveFolderItems').style.display   = 'none';
+  document.getElementById('driveFolderEmpty').style.display   = 'none';
+  document.getElementById('driveFolderCount').textContent     = '—';
+  document.getElementById('btnDriveFolderDownload').style.display = 'none';
+  document.getElementById('modalDriveFolder').classList.add('open');
+
+  renderDriveBreadcrumb();
+  await driveListarArquivos(drivePath);
+}
+
+async function driveListarArquivos(drivePath) {
+  document.getElementById('driveFolderLoading').style.display = 'flex';
+  document.getElementById('driveFolderItems').style.display   = 'none';
+  document.getElementById('driveFolderEmpty').style.display   = 'none';
+  document.getElementById('btnDriveFolderDownload').style.display = 'none';
+
+  try {
+    const res = await window.electronAPI.driveListAll(drivePath);
+    const folders = res?.folders || [];
+    const files   = res?.files   || [];
+    _driveFolderFiles = files;
+
+    document.getElementById('driveFolderLoading').style.display = 'none';
+
+    if (folders.length === 0 && files.length === 0) {
+      document.getElementById('driveFolderEmpty').style.display = 'block';
+      document.getElementById('driveFolderCount').textContent   = '0 itens';
+      return;
+    }
+
+    const items = document.getElementById('driveFolderItems');
+    items.style.display     = 'flex';
+    items.style.flexDirection = 'column';
+    items.style.gap         = '2px';
+
+    // Renderiza pastas primeiro
+    const foldersHtml = folders.map(f => `
+      <div class="drive-file-item" style="cursor:pointer;" onclick="driveFolderNavTo(${JSON.stringify([...drivePath, f.name])})"
+        onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background=''">
+        <span class="drive-file-icon">📁</span>
+        <span class="drive-file-name" style="color:var(--accent2);">${f.name}</span>
+        <span class="drive-file-size" style="color:var(--muted);">pasta</span>
+        <span class="drive-file-date"></span>
+        <span style="font-size:0.7rem;color:var(--muted);opacity:0.6;">›</span>
+      </div>`).join('');
+
+    // Renderiza arquivos
+    const filesHtml = files.map((f, i) => `
+      <div class="drive-file-item">
+        <span class="drive-file-icon">${getDriveFileIcon(f.name)}</span>
+        <span class="drive-file-name" title="${f.name}">${f.name}</span>
+        <span class="drive-file-size">${formatFileSize(f.size)}</span>
+        <span class="drive-file-date">${formatFileDate(f.modifiedTime)}</span>
+        <button class="drive-file-dl" onclick="driveDownloadArquivo(${i})" title="Baixar">⬇</button>
+      </div>`).join('');
+
+    items.innerHTML = foldersHtml + (folders.length && files.length ? `<div style="height:1px;background:var(--border);margin:4px 0;"></div>` : '') + filesHtml;
+
+    const total = folders.length + files.length;
+    document.getElementById('driveFolderCount').textContent = `${folders.length ? folders.length + ' pasta' + (folders.length > 1 ? 's' : '') + (files.length ? ' · ' : '') : ''}${files.length ? files.length + ' arquivo' + (files.length > 1 ? 's' : '') : ''}`;
+    if (files.length > 1) document.getElementById('btnDriveFolderDownload').style.display = 'block';
+
+  } catch(e) {
+    document.getElementById('driveFolderLoading').style.display = 'none';
+    document.getElementById('driveFolderEmpty').style.display   = 'block';
+    document.getElementById('driveFolderEmpty').textContent     = '⚠️ Erro ao carregar: ' + e.message;
+  }
+}
+
+async function driveDownloadArquivo(index) {
+  const file = _driveFolderFiles[index];
+  if (!file || !_driveFolderPath) return;
+  showToast(`⬇ Baixando ${file.name}...`);
+  try {
+    const res = await window.electronAPI.driveDownloadFolder(_driveFolderPath, file.name);
+    if (res?.success) showToast(`✓ ${res.message || file.name + ' salvo!'}`);
+    else showToast(`⚠️ ${res?.error || 'Erro ao baixar'}`);
+  } catch(e) {
+    showToast('⚠️ Erro: ' + e.message);
+  }
+}
+
+async function driveFolderDownloadAll() {
+  if (!_driveFolderPath || !_driveFolderFiles.length) return;
+  const folderName = _driveFolderPath[_driveFolderPath.length - 1];
+  showToast(`⬇ Preparando ZIP de ${_driveFolderFiles.length} arquivo${_driveFolderFiles.length > 1 ? 's' : ''}...`);
+  try {
+    const res = await window.electronAPI.driveDownloadFolder(_driveFolderPath, folderName);
+    if (res?.success) showToast(`✓ ${res.message}`);
+    else showToast(`⚠️ ${res?.error || 'Erro ao baixar'}`);
+  } catch(e) {
+    showToast('⚠️ Erro: ' + e.message);
+  }
+}
+
+async function driveUploadToCurrentFolder() {
+  if (!_driveFolderPath || !_driveFolderProject) return;
+  if (!await garantirOAuth()) return;
+
+  const folderName = _driveFolderPath[_driveFolderPath.length - 1];
+  const p = projects.find(x => x.id === _driveFolderProject);
+
+  showUploadProgress(`☁ Enviando para ${folderName}...`);
+  const res = await window.electronAPI.uploadFilesDialog(_driveFolderPath, null, p?.driveAccountId || '');
+  hideUploadProgress();
+
+  if (res.canceled) return;
+
+  const sucesso = (res.results || []).filter(r => r.success).length;
+  const falhou  = (res.results || []).filter(r => !r.success).length;
+
+  if (sucesso > 0) {
+    showToast(`✓ ${sucesso} arquivo${sucesso > 1 ? 's' : ''} enviado${sucesso > 1 ? 's' : ''}`);
+    await driveListarArquivos(_driveFolderPath);
+    if (_driveFolderProject) await refreshFileCounts(_driveFolderProject);
+  }
+  if (falhou > 0) showToast(`⚠️ ${falhou} arquivo${falhou > 1 ? 's' : ''} falharam.`);
+}
+
 
 async function abrirPastaNoGDrive(e, el) {
   e.stopPropagation();
