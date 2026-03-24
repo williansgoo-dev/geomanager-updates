@@ -2932,34 +2932,40 @@ function hideUploadProgress(success) {
   }, success ? 900 : 600);
 }
 
+let _uploadInProgress = false;
+
 async function executarUpload(projectId, destino) {
+  if (_uploadInProgress) return;
   const p = projects.find(x => x.id === projectId);
   if (!p) return;
 
   if (!await garantirOAuth()) return;
 
-  // Caminho no Drive: GeoProjects / folderName / ...subpastas
-  const folderPath = ['GeoProjects', p.folderName, ...destino.path];
+  _uploadInProgress = true;
+  try {
+    const folderPath = ['GeoProjects', p.folderName, ...destino.path];
 
-  showUploadProgress(`Preparando envio para ${destino.label}...`);
+    const res = await window.electronAPI.uploadFilesDialog(folderPath, destino.exts, p.driveAccountId || '');
+    if (res.canceled) return;
 
-  // Abre dialog e já faz upload direto para o Drive (passa driveAccountId para buscar token correto)
-  const res = await window.electronAPI.uploadFilesDialog(folderPath, destino.exts, p.driveAccountId || '');
-  if (res.canceled) { hideUploadProgress(false); return; }
+    showUploadProgress(`☁ Enviando para ${destino.label}...`);
 
-  const total   = (res.results || []).length;
-  const sucesso = (res.results || []).filter(r => r.success).length;
-  const falhou  = (res.results || []).filter(r => !r.success).length;
+    const total   = (res.results || []).length;
+    const sucesso = (res.results || []).filter(r => r.success).length;
+    const falhou  = (res.results || []).filter(r => !r.success).length;
 
-  updateUploadProgress(`Enviando para ${destino.label}...`, `${sucesso}/${total}`);
-  hideUploadProgress(sucesso > 0);
+    updateUploadProgress(`Enviando para ${destino.label}...`, `${sucesso}/${total}`);
+    hideUploadProgress(sucesso > 0);
 
-  if (sucesso > 0) {
-    showToast(`✓ ${sucesso} arquivo${sucesso > 1 ? 's' : ''} enviado${sucesso > 1 ? 's' : ''} para ${destino.label}`);
-    await refreshFileCounts(projectId);
-    await refreshFlowPanel(projectId);
+    if (sucesso > 0) {
+      showToast(`✓ ${sucesso} arquivo${sucesso > 1 ? 's' : ''} enviado${sucesso > 1 ? 's' : ''} para ${destino.label}`);
+      await refreshFileCounts(projectId);
+      await refreshFlowPanel(projectId);
+    }
+    if (falhou > 0) showToast(`⚠️ ${falhou} arquivo${falhou > 1 ? 's' : ''} falharam no envio.`);
+  } finally {
+    _uploadInProgress = false;
   }
-  if (falhou > 0) showToast(`⚠️ ${falhou} arquivo${falhou > 1 ? 's' : ''} falharam no envio.`);
 }
 
 
@@ -4190,11 +4196,11 @@ async function driveUploadToCurrentFolder() {
   const folderName = _driveFolderPath[_driveFolderPath.length - 1];
   const p = projects.find(x => x.id === _driveFolderProject);
 
-  showUploadProgress(`☁ Enviando para ${folderName}...`);
+  // Dialog PRIMEIRO
   const res = await window.electronAPI.uploadFilesDialog(_driveFolderPath, null, p?.driveAccountId || '');
-  hideUploadProgress();
-
   if (res.canceled) return;
+
+  showUploadProgress(`☁ Enviando para ${folderName}...`);
 
   const sucesso = (res.results || []).filter(r => r.success).length;
   const falhou  = (res.results || []).filter(r => !r.success).length;
@@ -4231,6 +4237,7 @@ function uploadParaPastaBtn(e, el) {
 
 async function uploadParaPasta(e, drivePathJson, folderName, projectId, hasChildren) {
   e.stopPropagation();
+  if (_uploadInProgress) return;
 
   // drivePathJson é um array JSON ex: ["GeoProjects","2026_01_Fazenda","Dados Brutos","GNSS_BASE"]
   let drivePath;
@@ -4288,26 +4295,31 @@ async function uploadParaPasta(e, drivePathJson, folderName, projectId, hasChild
 
   const exts = extMap[folderName] !== undefined ? extMap[folderName] : null;
 
-  showUploadProgress(`Preparando envio para ${folderName}...`);
+  _uploadInProgress = true;
+  try {
+    const res = await window.electronAPI.uploadFilesDialog(drivePath, exts, p?.driveAccountId || '');
+    if (res.canceled) return;
 
-  const res  = await window.electronAPI.uploadFilesDialog(drivePath, exts, p?.driveAccountId || '');
-  if (res.canceled) { hideUploadProgress(false); return; }
+    showUploadProgress(`☁ Enviando para ${folderName}...`);
 
-  const total   = (res.results || []).length;
-  const sucesso = res.results.filter(r => r.success).length;
-  const falhou  = res.results.filter(r => !r.success);
+    const total   = (res.results || []).length;
+    const sucesso = res.results.filter(r => r.success).length;
+    const falhou  = res.results.filter(r => !r.success);
 
-  updateUploadProgress(`Enviando para ${folderName}...`, `${sucesso}/${total}`);
-  hideUploadProgress(sucesso > 0);
+    updateUploadProgress(`Enviando para ${folderName}...`, `${sucesso}/${total}`);
+    hideUploadProgress(sucesso > 0);
 
-  if (sucesso > 0) {
-    showToast(`✓ ${sucesso} arquivo${sucesso > 1 ? 's' : ''} enviado${sucesso > 1 ? 's' : ''} para ${folderName}`);
-    if (projectId) {
-      await refreshFileCounts(projectId);
-      await refreshFlowPanel(projectId);
+    if (sucesso > 0) {
+      showToast(`✓ ${sucesso} arquivo${sucesso > 1 ? 's' : ''} enviado${sucesso > 1 ? 's' : ''} para ${folderName}`);
+      if (projectId) {
+        await refreshFileCounts(projectId);
+        await refreshFlowPanel(projectId);
+      }
     }
+    falhou.forEach(f => showToast(`⚠️ ${f.file}: ${f.error}`));
+  } finally {
+    _uploadInProgress = false;
   }
-  falhou.forEach(f => showToast(`⚠️ ${f.file}: ${f.error}`));
 }
 
 // Download de pasta do Drive — arquivo único ou ZIP
