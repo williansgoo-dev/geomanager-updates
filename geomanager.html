@@ -2565,13 +2565,13 @@ async function verificarAtualizacao(manual = false) {
       if (btn) {
         btn.classList.add('btn-update-badge', 'has-update');
         btn.classList.remove('checked');
-        btn.title = `🔔 Nova versão ${versaoAtual} disponível${notas ? '\n' + notas : ''}\nClique para ver`;
+        btn.title = `🔔 Nova versão ${versaoAtual} disponível${notas ? '\n\n' + notas : ''}\n\nClique para ver`;
       }
       if (manual) {
         const ir = confirm(
           `🔔 Nova versão disponível: ${versaoAtual}\n` +
           `Versão atual: ${APP_VERSION}\n` +
-          (notas ? `\nO que há de novo:\n${notas}\n` : '') +
+          (notas ? `\nO que há de novo:\n\n${notas}\n` : '') +
           `\nDeseja abrir a página de download?`
         );
         if (ir && urlDownload) window.electronAPI.openExternal(urlDownload);
@@ -2584,7 +2584,7 @@ async function verificarAtualizacao(manual = false) {
         btn.classList.remove('btn-update-badge', 'has-update');
         btn.classList.add('checked');
         const htmlInfo = _htmlVersao && _htmlVersao !== APP_VERSION ? ` · interface v${_htmlVersao}` : '';
-        btn.title = `GeoManager v${APP_VERSION}${htmlInfo} — você está atualizado ✅${notas ? '\nÚltima atualização: ' + notas : ''}`;
+        btn.title = `GeoManager v${APP_VERSION}${htmlInfo} — você está atualizado ✅${notas ? '\nÚltima atualização:\n' + notas : ''}`;
       }
       // Só mostra toast se foi clique manual
       if (manual) {
@@ -4239,13 +4239,14 @@ async function uploadParaPasta(e, drivePathJson, folderName, projectId, hasChild
   e.stopPropagation();
   if (_uploadInProgress) return;
 
-  // drivePathJson é um array JSON ex: ["GeoProjects","2026_01_Fazenda","Dados Brutos","GNSS_BASE"]
   let drivePath;
   try { drivePath = JSON.parse(drivePathJson); } catch(_) { drivePath = [drivePathJson]; }
 
+  // p definido no escopo principal para uso posterior
+  const p = projects.find(x => x.id === projectId);
+
   // Se tem subpastas, mostra modal de seleção em vez de upload direto
   if (hasChildren) {
-    const p = projects.find(x => x.id === projectId);
     if (!p) return;
     // Encontra os filhos desta pasta na estrutura do projeto
     function findFolder(items, name) {
