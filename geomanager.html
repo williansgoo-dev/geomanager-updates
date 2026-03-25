@@ -2792,7 +2792,7 @@ const UPLOAD_DESTINOS = {
   campo: [
     { label: 'TXT',               path: ['Levantamento','TXT'],               exts: ['txt','csv'] },
     { label: 'TXT_PPP_CORRIGIDO', path: ['Levantamento','TXT_PPP_CORRIGIDO'], exts: ['txt','csv'] },
-    { label: 'Aerolevantamento',  path: ['Levantamento','Aerolevantamento'],  exts: ['las','laz','tif','tiff','xyz','e57'] },
+    { label: 'Aerolevantamento',  path: ['Levantamento','Aerolevantamento'],  exts: ['las','laz','tif','tiff','xyz','e57','ply','obj','pts'] },
   ],
   ppp: [
     { label: 'IBGE_PPP', path: ['IBGE_PPP'], exts: ['pdf','txt'], direto: true },
@@ -2801,11 +2801,11 @@ const UPLOAD_DESTINOS = {
     { label: 'CAD_PRIMITIVO',  path: ['CAD_GIS','CAD_PRIMITIVO'],  exts: ['dwg','dxf'] },
     { label: 'CAD_PROJETADO',  path: ['CAD_GIS','CAD_PROJETADO'],  exts: ['dwg','dxf'] },
     { label: 'CAD_ENTREGAS',   path: ['CAD_GIS','CAD_ENTREGAS'],   exts: ['dwg','dxf','pdf'] },
-    { label: 'Shapefile_GPKG', path: ['CAD_GIS','Shapefile_GPKG'], exts: ['shp','gpkg','zip','dbf','prj','shx'] },
+    { label: 'Shapefile_GPKG', path: ['CAD_GIS','Shapefile_GPKG'], exts: ['shp','gpkg','zip','dbf','prj','shx','geojson','csv'] },
     { label: 'KMZ_KML',        path: ['CAD_GIS','KMZ_KML'],        exts: ['kmz','kml'] },
     { label: 'Memoriais',      path: ['Relatórios','Memoriais'],   exts: ['pdf','docx','doc'] },
-    { label: 'Plantas',        path: ['Relatórios','Plantas'],     exts: ['pdf','dwg'] },
-    { label: 'TRT_ART_RRT',    path: ['Relatórios','TRT_ART_RRT'], exts: ['pdf'] },
+    { label: 'Plantas',        path: ['Relatórios','Plantas'],     exts: ['pdf','dwg','dxf'] },
+    { label: 'TRT_ART_RRT',    path: ['Relatórios','TRT_ART_RRT'], exts: ['pdf','docx','doc'] },
   ],
 };
 
@@ -4290,15 +4290,15 @@ async function uploadParaPasta(e, drivePathJson, folderName, projectId, hasChild
     'IBGE_PPP':             ['pdf','txt'],
     'TXT':                  ['txt','csv'],
     'TXT_PPP_CORRIGIDO':    ['txt','csv'],
-    'Aerolevantamento':     ['las','laz','tif','tiff','xyz','e57'],
+    'Aerolevantamento':     ['las','laz','tif','tiff','xyz','e57','ply','obj','pts'],
     'CAD_PRIMITIVO':        ['dwg','dxf'],
     'CAD_PROJETADO':        ['dwg','dxf'],
     'CAD_ENTREGAS':         ['dwg','dxf','pdf'],
-    'Shapefile_GPKG':       ['shp','gpkg','zip','dbf','prj','shx'],
+    'Shapefile_GPKG':       ['shp','gpkg','zip','dbf','prj','shx','geojson','csv'],
     'KMZ_KML':              ['kmz','kml'],
     'Memoriais':            ['pdf','docx','doc'],
-    'Plantas':              ['pdf','dwg'],
-    'TRT_ART_RRT':          ['pdf'],
+    'Plantas':              ['pdf','dwg','dxf'],
+    'TRT_ART_RRT':          ['pdf','docx','doc'],
     'Fotos_Registro_Campo': ['jpg','jpeg','png','heic'],
   };
 
