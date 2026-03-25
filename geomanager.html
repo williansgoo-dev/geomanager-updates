@@ -1279,7 +1279,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
       <button class="btn-theme" id="btnAdminUsuarios" onclick="openUsuarios()" title="Gestão de Usuários" style="display:none;">👥</button>
       <button class="btn-theme" id="btnOAuth" onclick="toggleOAuth()" title="Conectar Google Drive para upload" style="font-size:0.7rem;display:none;">☁ Drive</button>
       <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Alternar tema claro/escuro"></button>
-      <button class="btn-theme" id="btnUpdate" onclick="verificarAtualizacao(true)" title="Verificar atualizações" style="display:none;">🔔</button>
+      <button class="btn-theme" id="btnUpdate" onclick="verificarAtualizacao(true)" title="Verificar atualizações">🔔</button>
       <button class="btn-theme" onclick="openHelp()" title="Ajuda / Manual">❓</button>
       <button class="btn-theme" onclick="fazerLogout()" title="Sair da conta" style="color:var(--danger);">⏏</button>
     </div>
@@ -2563,6 +2563,7 @@ async function verificarAtualizacao(manual = false) {
 
     if (versaoAtual !== APP_VERSION) {
       if (btn) {
+        btn.style.display = '';
         btn.classList.add('btn-update-badge', 'has-update');
         btn.classList.remove('checked');
         btn.title = `🔔 Nova versão ${versaoAtual} disponível${notas ? '\n\n' + notas : ''}\n\nClique para ver`;
@@ -2946,7 +2947,7 @@ async function executarUpload(projectId, destino) {
     const folderPath = ['GeoProjects', p.folderName, ...destino.path];
 
     const res = await window.electronAPI.uploadFilesDialog(folderPath, destino.exts, p.driveAccountId || '');
-    if (res.canceled) return;
+    if (res.canceled) { hideUploadProgress(false); return; }
 
     showUploadProgress(`☁ Enviando para ${destino.label}...`);
 
@@ -2963,6 +2964,9 @@ async function executarUpload(projectId, destino) {
       await refreshFlowPanel(projectId);
     }
     if (falhou > 0) showToast(`⚠️ ${falhou} arquivo${falhou > 1 ? 's' : ''} falharam no envio.`);
+  } catch(e) {
+    hideUploadProgress(false);
+    showToast(`⚠️ Erro no upload: ${e.message}`);
   } finally {
     _uploadInProgress = false;
   }
@@ -4244,10 +4248,14 @@ async function uploadParaPasta(e, drivePathJson, folderName, projectId, hasChild
 
   // p definido no escopo principal para uso posterior
   const p = projects.find(x => x.id === projectId);
+  if (!p) {
+    console.error('[uploadParaPasta] projeto não encontrado para id:', projectId);
+    showToast('⚠️ Projeto não encontrado. Tente fechar e abrir o card.');
+    return;
+  }
 
   // Se tem subpastas, mostra modal de seleção em vez de upload direto
   if (hasChildren) {
-    if (!p) return;
     // Encontra os filhos desta pasta na estrutura do projeto
     function findFolder(items, name) {
       for (const item of items) {
@@ -4299,7 +4307,7 @@ async function uploadParaPasta(e, drivePathJson, folderName, projectId, hasChild
   _uploadInProgress = true;
   try {
     const res = await window.electronAPI.uploadFilesDialog(drivePath, exts, p?.driveAccountId || '');
-    if (res.canceled) return;
+    if (res.canceled) { hideUploadProgress(false); return; }
 
     showUploadProgress(`☁ Enviando para ${folderName}...`);
 
@@ -4318,6 +4326,9 @@ async function uploadParaPasta(e, drivePathJson, folderName, projectId, hasChild
       }
     }
     falhou.forEach(f => showToast(`⚠️ ${f.file}: ${f.error}`));
+  } catch(e) {
+    hideUploadProgress(false);
+    showToast(`⚠️ Erro no upload: ${e.message}`);
   } finally {
     _uploadInProgress = false;
   }
