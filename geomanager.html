@@ -2162,7 +2162,11 @@ async function init() {
   // Carrega lista de usuários para cache de nomes
   if (window.electronAPI?.authListarUsuarios) {
     window.electronAPI.authListarUsuarios().then(res => {
-      if (res?.usuarios) _usuariosCache = res.usuarios;
+      if (res?.usuarios) {
+        _usuariosCache = res.usuarios;
+        // Re-renderiza cards para mostrar nomes corretos
+        renderProjects();
+      }
     }).catch(() => {});
   }
 
@@ -3507,7 +3511,7 @@ function renderProjects() {
             ${p.name}
             ${(userMaster || userRole === 'admin') ? renderEquipeBtn(p) : ''}
           </div>
-          ${p.createdBy && p.createdBy !== userName ? `<div style="font-size:0.68rem;color:var(--muted);margin-top:2px;">👤 ${p.createdByName || getDisplayNameByLogin(p.createdBy)}</div>` : ''}
+          ${p.createdBy ? `<div style="font-size:0.68rem;color:var(--muted);margin-top:2px;">👤 ${p.createdByName || getDisplayNameByLogin(p.createdBy)}</div>` : ''}
         </div>
         <div class="proj-card-meta-inline">
           <div class="proj-meta-pill">${p.uf} <span>${p.city}</span></div>
