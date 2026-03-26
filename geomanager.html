@@ -2617,10 +2617,13 @@ async function verificarAtualizacao(manual = false) {
         btn.style.display = '';
         btn.classList.remove('btn-update-badge', 'has-update');
         btn.classList.add('checked');
-        const htmlInfo = _htmlVersao ? ` · interface v${_htmlVersao}` : '';
-        btn.title = `GeoManager v${APP_VERSION}${htmlInfo} — você está atualizado ✅`;
+        const versaoExibida = _htmlVersao || APP_VERSION;
+        btn.title = `GeoManager v${versaoExibida} — você está atualizado ✅`;
       }
-      if (manual) showToast(`✅ v${APP_VERSION} — você está atualizado!`);
+      if (manual) {
+        const versaoExibida = _htmlVersao || APP_VERSION;
+        showToast(`✅ v${versaoExibida} — você está atualizado!`);
+      }
     }
   } catch(e) {
     if (btn) {
