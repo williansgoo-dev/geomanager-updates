@@ -2568,6 +2568,9 @@ async function verificarAtualizacao(manual = false) {
     const exeDesatualizado  = versaoExe  && versaoExe  !== APP_VERSION;
     const htmlDesatualizado = versaoHtml && versaoHtml !== _htmlVersao;
 
+    // Se _htmlVersao não foi carregado ainda, usa a versão do Firebase como referência
+    if (!_htmlVersao && versaoHtml) _htmlVersao = versaoHtml;
+
     if (exeDesatualizado) {
       if (btn) {
         btn.style.display = '';
