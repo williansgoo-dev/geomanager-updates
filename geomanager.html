@@ -969,148 +969,9 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
   .form-row { grid-template-columns: 1fr; }
   .side-panel.open { width: 100%; position: fixed; inset: 0; top: 58px; z-index: 150; }
 }
-
-  /* ── Drive Folder Viewer ────────────────────────────────────── */
-  .drive-file-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-    border-radius: 7px;
-    border: 1px solid transparent;
-    transition: all 0.12s;
-    cursor: default;
-  }
-  .drive-file-item:hover {
-    background: var(--surf2);
-    border-color: var(--border);
-  }
-  .drive-file-icon {
-    font-size: 1rem;
-    flex-shrink: 0;
-    width: 20px;
-    text-align: center;
-  }
-  .drive-file-name {
-    flex: 1;
-    font-size: 0.78rem;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .drive-file-size {
-    font-size: 0.65rem;
-    font-family: var(--mono);
-    color: var(--muted);
-    flex-shrink: 0;
-  }
-  .drive-file-date {
-    font-size: 0.62rem;
-    font-family: var(--mono);
-    color: var(--muted2, #3a4458);
-    flex-shrink: 0;
-    min-width: 72px;
-    text-align: right;
-  }
-  .drive-file-dl {
-    opacity: 0;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--muted);
-    font-size: 0.65rem;
-    padding: 2px 6px;
-    cursor: pointer;
-    transition: all 0.12s;
-    flex-shrink: 0;
-  }
-  .drive-file-item:hover .drive-file-dl { opacity: 1; }
-  .drive-file-dl:hover {
-    border-color: var(--accent) !important;
-    color: var(--accent) !important;
-  }
 </style>
 </head>
 <body>
-
-<!-- ══ MODAL: CONFIRMAR EXCLUSÃO DE ARQUIVO DO DRIVE ══ -->
-<div class="modal-overlay" id="modalDriveDelete" style="z-index:600;">
-  <div class="modal-box" style="max-width:400px;padding:28px;">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-      <span style="font-size:1.4rem;">🗑</span>
-      <div class="modal-title" style="margin-bottom:0;color:var(--danger);">Apagar Arquivo</div>
-    </div>
-    <div id="driveDeleteFileName" style="font-size:0.82rem;color:var(--text);background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-family:var(--mono);word-break:break-all;"></div>
-    <div style="font-size:0.78rem;color:var(--muted);margin-bottom:16px;">Esta ação é <strong style="color:var(--danger);">irreversível</strong>. Confirme sua senha de master para prosseguir:</div>
-    <div class="form-group" style="margin-bottom:16px;">
-      <label class="f-label">Senha Master</label>
-      <input class="f-input" type="password" id="driveDeleteSenha" placeholder="••••••••" style="margin-bottom:0;">
-    </div>
-    <div id="driveDeleteError" style="font-size:0.75rem;color:var(--danger);min-height:16px;margin-bottom:12px;"></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button class="btn-cancel" onclick="closeModal('modalDriveDelete')">Cancelar</button>
-      <button class="btn-confirm" style="background:var(--danger);border-color:var(--danger);" onclick="confirmarApagarArquivoDrive()">Apagar</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ MODAL: VISUALIZADOR DE PASTA DO DRIVE ══ -->
-<div class="modal-overlay" id="modalDriveFolder">
-  <div class="modal-box" style="max-width:640px;padding:0;overflow:hidden;max-height:88vh;display:flex;flex-direction:column;">
-    <!-- Header -->
-    <div style="padding:14px 22px 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <svg width="16" height="16" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-          <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
-          <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0-1.2 4.5h27.5z" fill="#00ac47"/>
-          <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
-          <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
-          <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
-          <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
-        </svg>
-        <button id="btnDriveBack" onclick="driveFolderVoltar()"
-          title="Voltar para pasta anterior"
-          style="display:none;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.75rem;flex-shrink:0;transition:all 0.15s;"
-          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
-          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">‹ Voltar</button>
-      <div id="driveFolderTitle" style="font-size:0.88rem;font-weight:700;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Pasta</div>
-        <button onclick="driveUploadToCurrentFolder()" title="Enviar arquivo para esta pasta"
-          style="display:flex;align-items:center;gap:5px;font-size:0.72rem;background:var(--accent);color:#000;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-weight:600;flex-shrink:0;">
-          ⬆ Upload
-        </button>
-        <button class="modal-close" onclick="closeModal('modalDriveFolder')" style="flex-shrink:0;">✕</button>
-      </div>
-      <!-- Breadcrumb de navegação -->
-      <div id="driveBreadcrumb" style="display:flex;align-items:center;flex-wrap:wrap;gap:2px;font-size:0.62rem;font-family:var(--mono);color:var(--muted);"></div>
-    </div>
-
-    <!-- Lista de arquivos -->
-    <div id="driveFolderList" style="flex:1;overflow-y:auto;padding:12px 22px;min-height:120px;">
-      <div id="driveFolderLoading" style="display:flex;align-items:center;gap:8px;padding:24px 0;color:var(--muted);font-size:0.8rem;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite">
-          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-        </svg>
-        Carregando arquivos...
-      </div>
-      <div id="driveFolderItems" style="display:none;"></div>
-      <div id="driveFolderEmpty" style="display:none;padding:32px 0;text-align:center;color:var(--muted);font-size:0.8rem;">
-        📂 Pasta vazia — use o botão ⬆ Upload para enviar arquivos
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div id="driveFolderFooter" style="padding:10px 22px;border-top:1px solid var(--border);font-size:0.68rem;color:var(--muted);font-family:var(--mono);flex-shrink:0;display:flex;justify-content:space-between;align-items:center;">
-      <span id="driveFolderCount">—</span>
-      <button onclick="driveFolderDownloadAll()" id="btnDriveFolderDownload"
-        style="display:none;font-size:0.68rem;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:3px 8px;cursor:pointer;"
-        onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
-        onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-        ⬇ Baixar todos
-      </button>
-    </div>
-  </div>
-</div>
 
 <!-- ══ TOAST ══ -->
 <!-- UPLOAD PROGRESS -->
@@ -1220,7 +1081,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
   <div class="modal-box" style="max-width:380px;padding:24px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
       <div class="modal-title" style="margin-bottom:0;">+ Adicionar Usuário</div>
-      <button class="modal-close" onclick="closeModal('popupAdicionarUsuario', 'modalDriveFolder', 'modalDriveDelete')">✕</button>
+      <button class="modal-close" onclick="closeModal('popupAdicionarUsuario')">✕</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <div>
@@ -1244,7 +1105,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:18px;">
-      <button class="btn-cancel" style="flex:1;" onclick="closeModal('popupAdicionarUsuario', 'modalDriveFolder', 'modalDriveDelete')">Cancelar</button>
+      <button class="btn-cancel" style="flex:1;" onclick="closeModal('popupAdicionarUsuario')">Cancelar</button>
       <button class="btn-confirm" style="flex:1;" onclick="adicionarUsuario()">+ Adicionar</button>
     </div>
   </div>
@@ -1279,7 +1140,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
       <button class="btn-theme" id="btnAdminUsuarios" onclick="openUsuarios()" title="Gestão de Usuários" style="display:none;">👥</button>
       <button class="btn-theme" id="btnOAuth" onclick="toggleOAuth()" title="Conectar Google Drive para upload" style="font-size:0.7rem;display:none;">☁ Drive</button>
       <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Alternar tema claro/escuro"></button>
-      <button class="btn-theme" id="btnUpdate" onclick="verificarAtualizacao(true)" title="Verificar atualizações">🔄</button>
+      <button class="btn-theme" id="btnUpdate" onclick="verificarAtualizacao(true)" title="Verificar atualizações" style="display:none;">🔔</button>
       <button class="btn-theme" onclick="openHelp()" title="Ajuda / Manual">❓</button>
       <button class="btn-theme" onclick="fazerLogout()" title="Sair da conta" style="color:var(--danger);">⏏</button>
     </div>
@@ -2162,11 +2023,7 @@ async function init() {
   // Carrega lista de usuários para cache de nomes
   if (window.electronAPI?.authListarUsuarios) {
     window.electronAPI.authListarUsuarios().then(res => {
-      if (res?.usuarios) {
-        _usuariosCache = res.usuarios;
-        // Re-renderiza cards para mostrar nomes corretos
-        renderProjects();
-      }
+      if (res?.usuarios) _usuariosCache = res.usuarios;
     }).catch(() => {});
   }
 
@@ -2340,19 +2197,14 @@ async function openCompartilhar(id) {
   });
 
   elegíveis.forEach(u => {
-    const isAdmin    = u.role === 'admin';
-    // Admins: sempre marcados para admin normal (só master pode desmarcar)
-    const checked    = isAdmin ? true : sharedWith.includes(u.login);
-    const disabled   = isAdmin && !userMaster;
-    const cursor     = disabled ? 'default' : 'pointer';
-    const opacity    = disabled ? '0.6' : '1';
+    const isAdmin = u.role === 'admin';
+    const checked = sharedWith.includes(u.login);
 
     container.innerHTML += `
       <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;
-        background:var(--surf2);border:1px solid var(--border);border-radius:8px;
-        cursor:${cursor};opacity:${opacity};">
-        <input type="checkbox" value="${u.login}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}
-          style="accent-color:var(--accent);width:15px;height:15px;cursor:${cursor};">
+        background:var(--surf2);border:1px solid var(--border);border-radius:8px;cursor:pointer;">
+        <input type="checkbox" value="${u.login}" ${checked ? 'checked' : ''}
+          style="accent-color:var(--accent);width:15px;height:15px;">
         <span style="flex:1;">${u.nomeExibicao || u.nome || u.login}</span>
         <span style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);">${u.login}</span>
         ${isAdmin ? '<span style="font-size:0.65rem;color:var(--accent2);">admin</span>' : ''}
@@ -2375,7 +2227,7 @@ async function salvarCompartilhamento() {
   // Inclui checkboxes marcados (ativos e desabilitados)
   // Desabilitados = admins que admin normal não pode desmarcar
   p.sharedWith = Array.from(checkboxes)
-    .filter(cb => cb.checked || cb.disabled)
+    .filter(cb => cb.checked)
     .map(cb => cb.value);
 
   await saveData();
@@ -2539,8 +2391,9 @@ let _htmlVersao = ''; // versão do HTML instalado localmente
 async function verificarAtualizacao(manual = false) {
   const btn = document.getElementById('btnUpdate');
 
+  // Mostra "verificando..." ao clicar manualmente
   if (manual && btn) {
-    btn.textContent = '⏳';
+    btn.textContent = '🔄';
     btn.title = 'Verificando atualizações...';
     btn.style.opacity = '0.6';
     btn.disabled = true;
@@ -2548,95 +2401,64 @@ async function verificarAtualizacao(manual = false) {
 
   try {
     const res         = await window.electronAPI.firebaseGetVersao();
-    const versaoExe   = res?.versao_atual || '';
+    const versaoAtual = res?.versao_atual || '';
     const urlDownload = res?.url_download || '';
-    const notasExe    = res?.notas        || '';
-    const versaoHtml  = res?.html_versao  || '';
-    const notasHtml   = res?.html_notas   || '';
+    const notas       = res?.notas || '';
 
+    // Restaura botão
     if (btn) {
-      btn.textContent = '🔄';
+      btn.textContent = '🔔';
       btn.style.opacity = '';
       btn.disabled = false;
     }
 
-    if (!versaoExe && !versaoHtml) {
+    if (!versaoAtual) {
       if (manual) showToast('⚠️ Não foi possível verificar atualizações.');
       return;
     }
 
-    const exeDesatualizado  = versaoExe  && versaoExe  !== APP_VERSION;
-    const htmlDesatualizado = versaoHtml && versaoHtml !== _htmlVersao;
-
-    // Se _htmlVersao não foi carregado ainda, usa a versão do Firebase como referência
-    if (!_htmlVersao && versaoHtml) _htmlVersao = versaoHtml;
-
-    if (exeDesatualizado) {
+    if (versaoAtual !== APP_VERSION) {
       if (btn) {
-        btn.style.display = '';
         btn.classList.add('btn-update-badge', 'has-update');
         btn.classList.remove('checked');
-        btn.title = `🔄 Nova versão ${versaoExe} disponível${notasExe ? '\n\n' + notasExe : ''}\n\nClique para baixar`;
+        btn.title = `🔔 Nova versão ${versaoAtual} disponível${notas ? '\n' + notas : ''}\nClique para ver`;
       }
       if (manual) {
         const ir = confirm(
-          `🔄 Nova versão disponível: ${versaoExe}\n` +
+          `🔔 Nova versão disponível: ${versaoAtual}\n` +
           `Versão atual: ${APP_VERSION}\n` +
-          (notasExe ? `\nO que há de novo:\n\n${notasExe}\n` : '') +
+          (notas ? `\nO que há de novo:\n${notas}\n` : '') +
           `\nDeseja abrir a página de download?`
         );
         if (ir && urlDownload) window.electronAPI.openExternal(urlDownload);
       } else {
-        showToast(`🔄 Nova versão ${versaoExe} disponível! Clique em 🔄 para atualizar.`);
-      }
-    } else if (htmlDesatualizado) {
-      if (btn) {
-        btn.style.display = '';
-        btn.classList.add('btn-update-badge', 'has-update');
-        btn.classList.remove('checked');
-        btn.title = `🔄 Interface v${versaoHtml} disponível — clique para baixar`;
-      }
-      if (manual) {
-        showToast('⬇ Baixando atualização da interface...');
-        if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
-        const upd = await window.electronAPI.htmlCheckUpdate();
-        if (btn) { btn.textContent = '🔄'; btn.disabled = false; }
-        if (upd?.atualizado) {
-          _htmlVersao = upd.versao;
-          if (btn) {
-            btn.classList.remove('btn-update-badge', 'has-update');
-            btn.classList.add('checked');
-            btn.title = `✅ Interface v${upd.versao} baixada — feche e reabra para aplicar`;
-          }
-          showToast(`✅ Interface v${upd.versao} baixada! Feche e reabra o app para aplicar.`, 6000);
-        } else {
-          showToast('⚠️ Não foi possível baixar a atualização. Tente novamente.');
-        }
-      } else {
-        showToast(`🔄 Nova interface v${versaoHtml} disponível! Clique em 🔄 para baixar.`);
+        showToast(`🔔 Nova versão ${versaoAtual} disponível! Clique em 🔔 para atualizar.`);
       }
     } else {
       if (btn) {
         btn.style.display = '';
         btn.classList.remove('btn-update-badge', 'has-update');
         btn.classList.add('checked');
-        const versaoExibida = _htmlVersao || APP_VERSION;
-        btn.title = `GeoManager v${versaoExibida} — você está atualizado ✅`;
+        const htmlInfo = _htmlVersao && _htmlVersao !== APP_VERSION ? ` · interface v${_htmlVersao}` : '';
+        btn.title = `GeoManager v${APP_VERSION}${htmlInfo} — você está atualizado ✅${notas ? '\nÚltima atualização: ' + notas : ''}`;
       }
+      // Só mostra toast se foi clique manual
       if (manual) {
         const versaoExibida = _htmlVersao || APP_VERSION;
         showToast(`✅ v${versaoExibida} — você está atualizado!`);
       }
     }
   } catch(e) {
+    // Restaura botão em caso de erro
     if (btn) {
-      btn.textContent = '🔄';
+      btn.textContent = '🔔';
       btn.style.opacity = '';
       btn.disabled = false;
     }
     if (manual) showToast('⚠️ Não foi possível verificar atualizações.');
   }
 }
+
 async function salvarNomeExibicao() {
   const nome = document.getElementById('nomeExibicaoInput')?.value.trim();
   if (nome === undefined) return;
@@ -2738,7 +2560,7 @@ function abrirPopupAdicionarUsuario() {
   // Esconde opção Admin para não-master
   const optAdmin = document.getElementById('optAdmin');
   if (optAdmin) optAdmin.style.display = userMaster ? '' : 'none';
-  openModal('popupAdicionarUsuario', 'modalDriveFolder', 'modalDriveDelete');
+  openModal('popupAdicionarUsuario');
 }
 
 async function adicionarUsuario() {
@@ -2752,7 +2574,7 @@ async function adicionarUsuario() {
   const res = await window.electronAPI.authAdicionarUsuario(login, senha, nome, role, userMaster ? 'master' : userRole);
   if (res.success) {
     showToast('✓ Usuário adicionado com sucesso!');
-    closeModal('popupAdicionarUsuario', 'modalDriveFolder', 'modalDriveDelete');
+    closeModal('popupAdicionarUsuario');
     await carregarUsuarios();
   } else {
     showToast('⚠️ ' + res.error);
@@ -2825,7 +2647,7 @@ const UPLOAD_DESTINOS = {
   campo: [
     { label: 'TXT',               path: ['Levantamento','TXT'],               exts: ['txt','csv'] },
     { label: 'TXT_PPP_CORRIGIDO', path: ['Levantamento','TXT_PPP_CORRIGIDO'], exts: ['txt','csv'] },
-    { label: 'Aerolevantamento',  path: ['Levantamento','Aerolevantamento'],  exts: ['las','laz','tif','tiff','xyz','e57','ply','obj','pts'] },
+    { label: 'Aerolevantamento',  path: ['Levantamento','Aerolevantamento'],  exts: ['las','laz','tif','tiff','xyz','e57'] },
   ],
   ppp: [
     { label: 'IBGE_PPP', path: ['IBGE_PPP'], exts: ['pdf','txt'], direto: true },
@@ -2834,11 +2656,11 @@ const UPLOAD_DESTINOS = {
     { label: 'CAD_PRIMITIVO',  path: ['CAD_GIS','CAD_PRIMITIVO'],  exts: ['dwg','dxf'] },
     { label: 'CAD_PROJETADO',  path: ['CAD_GIS','CAD_PROJETADO'],  exts: ['dwg','dxf'] },
     { label: 'CAD_ENTREGAS',   path: ['CAD_GIS','CAD_ENTREGAS'],   exts: ['dwg','dxf','pdf'] },
-    { label: 'Shapefile_GPKG', path: ['CAD_GIS','Shapefile_GPKG'], exts: ['shp','gpkg','zip','dbf','prj','shx','geojson','csv'] },
+    { label: 'Shapefile_GPKG', path: ['CAD_GIS','Shapefile_GPKG'], exts: ['shp','gpkg','zip','dbf','prj','shx'] },
     { label: 'KMZ_KML',        path: ['CAD_GIS','KMZ_KML'],        exts: ['kmz','kml'] },
     { label: 'Memoriais',      path: ['Relatórios','Memoriais'],   exts: ['pdf','docx','doc'] },
-    { label: 'Plantas',        path: ['Relatórios','Plantas'],     exts: ['pdf','dwg','dxf'] },
-    { label: 'TRT_ART_RRT',    path: ['Relatórios','TRT_ART_RRT'], exts: ['pdf','docx','doc'] },
+    { label: 'Plantas',        path: ['Relatórios','Plantas'],     exts: ['pdf','dwg'] },
+    { label: 'TRT_ART_RRT',    path: ['Relatórios','TRT_ART_RRT'], exts: ['pdf'] },
   ],
 };
 
@@ -2966,43 +2788,34 @@ function hideUploadProgress(success) {
   }, success ? 900 : 600);
 }
 
-let _uploadInProgress = false;
-
 async function executarUpload(projectId, destino) {
-  if (_uploadInProgress) return;
   const p = projects.find(x => x.id === projectId);
   if (!p) return;
 
   if (!await garantirOAuth()) return;
 
-  _uploadInProgress = true;
-  try {
-    const folderPath = ['GeoProjects', p.folderName, ...destino.path];
+  // Caminho no Drive: GeoProjects / folderName / ...subpastas
+  const folderPath = ['GeoProjects', p.folderName, ...destino.path];
 
-    const res = await window.electronAPI.uploadFilesDialog(folderPath, destino.exts, p.driveAccountId || '');
-    if (res.canceled) { hideUploadProgress(false); return; }
+  showUploadProgress(`Preparando envio para ${destino.label}...`);
 
-    showUploadProgress(`☁ Enviando para ${destino.label}...`);
+  // Abre dialog e já faz upload direto para o Drive (passa driveAccountId para buscar token correto)
+  const res = await window.electronAPI.uploadFilesDialog(folderPath, destino.exts, p.driveAccountId || '');
+  if (res.canceled) { hideUploadProgress(false); return; }
 
-    const total   = (res.results || []).length;
-    const sucesso = (res.results || []).filter(r => r.success).length;
-    const falhou  = (res.results || []).filter(r => !r.success).length;
+  const total   = (res.results || []).length;
+  const sucesso = (res.results || []).filter(r => r.success).length;
+  const falhou  = (res.results || []).filter(r => !r.success).length;
 
-    updateUploadProgress(`Enviando para ${destino.label}...`, `${sucesso}/${total}`);
-    hideUploadProgress(sucesso > 0);
+  updateUploadProgress(`Enviando para ${destino.label}...`, `${sucesso}/${total}`);
+  hideUploadProgress(sucesso > 0);
 
-    if (sucesso > 0) {
-      showToast(`✓ ${sucesso} arquivo${sucesso > 1 ? 's' : ''} enviado${sucesso > 1 ? 's' : ''} para ${destino.label}`);
-      await refreshFileCounts(projectId);
-      await refreshFlowPanel(projectId);
-    }
-    if (falhou > 0) showToast(`⚠️ ${falhou} arquivo${falhou > 1 ? 's' : ''} falharam no envio.`);
-  } catch(e) {
-    hideUploadProgress(false);
-    showToast(`⚠️ Erro no upload: ${e.message}`);
-  } finally {
-    _uploadInProgress = false;
+  if (sucesso > 0) {
+    showToast(`✓ ${sucesso} arquivo${sucesso > 1 ? 's' : ''} enviado${sucesso > 1 ? 's' : ''} para ${destino.label}`);
+    await refreshFileCounts(projectId);
+    await refreshFlowPanel(projectId);
   }
+  if (falhou > 0) showToast(`⚠️ ${falhou} arquivo${falhou > 1 ? 's' : ''} falharam no envio.`);
 }
 
 
@@ -3540,7 +3353,7 @@ function renderProjects() {
             ${p.name}
             ${(userMaster || userRole === 'admin') ? renderEquipeBtn(p) : ''}
           </div>
-          ${p.createdBy ? `<div style="font-size:0.68rem;color:var(--muted);margin-top:2px;">👤 ${p.createdByName || getDisplayNameByLogin(p.createdBy)}</div>` : ''}
+          ${p.createdBy && p.createdBy !== userName ? `<div style="font-size:0.68rem;color:var(--muted);margin-top:2px;">👤 ${p.createdByName || getDisplayNameByLogin(p.createdBy)}</div>` : ''}
         </div>
         <div class="proj-card-meta-inline">
           <div class="proj-meta-pill">${p.uf} <span>${p.city}</span></div>
@@ -3950,94 +3763,6 @@ function renderTree(items, depth, projectId, basePath, drivePathArr) {
 }
 
 // Abre pasta diretamente no Google Drive pelo browser
-// ── Variáveis do visualizador de pasta Drive ──────────────────────
-let _driveFolderPath      = null;
-let _driveFolderRootPath  = null;
-let _driveFolderProject   = null;
-let _driveFolderFiles     = [];
-let _driveFolderHistory   = [];
-
-function _driveUpdateBackBtn() {
-  const btn = document.getElementById('btnDriveBack');
-  if (btn) btn.style.display = _driveFolderHistory.length > 0 ? 'block' : 'none';
-}
-
-async function driveFolderVoltar() {
-  if (!_driveFolderHistory.length) return;
-  const anterior = _driveFolderHistory.pop();
-  _driveFolderPath = anterior;
-  document.getElementById('driveFolderTitle').textContent = anterior[anterior.length - 1];
-  renderDriveBreadcrumb();
-  _driveUpdateBackBtn();
-  await driveListarArquivos(anterior);
-}
-
-function formatFileSize(bytes) {
-  if (!bytes) return '—';
-  const b = parseInt(bytes);
-  if (b < 1024)        return `${b} B`;
-  if (b < 1024*1024)   return `${(b/1024).toFixed(1)} KB`;
-  return `${(b/1024/1024).toFixed(1)} MB`;
-}
-
-function formatFileDate(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
-}
-
-function getDriveFileIcon(name) {
-  const ext = (name.split('.').pop() || '').toLowerCase();
-  const icons = {
-    pdf: '📄', dwg: '📐', dxf: '📐',
-    shp: '🗺️', gpkg: '🗺️', kml: '🗺️', kmz: '🗺️',
-    zip: '🗜️', rar: '🗜️',
-    jpg: '🖼️', jpeg: '🖼️', png: '🖼️', heic: '🖼️',
-    txt: '📝', csv: '📊', xlsx: '📊', xls: '📊',
-    docx: '📃', doc: '📃',
-    las: '☁️', laz: '☁️',
-    tif: '🗾', tiff: '🗾',
-  };
-  return icons[ext] || '📄';
-}
-
-function renderDriveBreadcrumb() {
-  const crumb = document.getElementById('driveBreadcrumb');
-  if (!crumb || !_driveFolderPath) return;
-
-  // Mostra apenas a partir do folderName do projeto (índice 1)
-  const parts = _driveFolderPath.slice(1); // remove 'GeoProjects'
-  crumb.innerHTML = parts.map((part, i) => {
-    const isLast  = i === parts.length - 1;
-    const pathTo  = [_driveFolderPath[0], ...parts.slice(0, i + 1)];
-    return isLast
-      ? `<span style="color:var(--text);">${part}</span>`
-      : `<span style="cursor:pointer;color:var(--accent);"
-           data-navpath='${JSON.stringify(pathTo).replace(/'/g,"&apos;")}'
-           onclick="driveFolderNavToBtn(this)">${part}</span>
-         <span style="opacity:0.4;margin:0 2px;">›</span>`;
-  }).join('');
-}
-
-function driveFolderNavToBtn(el) {
-  const pathJson = el.dataset.navpath?.replace(/&apos;/g, "'");
-  if (!pathJson) return;
-  try {
-    const path = JSON.parse(pathJson);
-    driveFolderNavTo(path);
-  } catch(e) { console.error('driveFolderNavToBtn:', e); }
-}
-
-async function driveFolderNavTo(path) {
-  // Salva caminho atual no histórico antes de navegar
-  if (_driveFolderPath) _driveFolderHistory.push(_driveFolderPath);
-  _driveFolderPath = path;
-  document.getElementById('driveFolderTitle').textContent = path[path.length - 1];
-  renderDriveBreadcrumb();
-  _driveUpdateBackBtn();
-  await driveListarArquivos(path);
-}
-
 async function abrirPastaNoGDrive(e, el) {
   e.stopPropagation();
   const drivePathJson = el.dataset.drivepath?.replace(/&apos;/g, "'");
@@ -4047,209 +3772,38 @@ async function abrirPastaNoGDrive(e, el) {
   let drivePath;
   try { drivePath = JSON.parse(drivePathJson); } catch(_) { return; }
 
-  _driveFolderPath      = drivePath;
-  _driveFolderRootPath  = drivePath;
-  _driveFolderProject   = projectId;
-  _driveFolderHistory   = []; // limpa histórico ao abrir nova pasta
-
-  document.getElementById('driveFolderTitle').textContent = drivePath[drivePath.length - 1];
-
-  // Mostra modal com loading
-  document.getElementById('driveFolderLoading').style.display = 'flex';
-  document.getElementById('driveFolderItems').style.display   = 'none';
-  document.getElementById('driveFolderEmpty').style.display   = 'none';
-  document.getElementById('driveFolderCount').textContent     = '—';
-  document.getElementById('btnDriveFolderDownload').style.display = 'none';
-  document.getElementById('modalDriveFolder').classList.add('open');
-  _driveUpdateBackBtn();
-  renderDriveBreadcrumb();
-  await driveListarArquivos(drivePath);
-}
-
-async function driveListarArquivos(drivePath) {
-  document.getElementById('driveFolderLoading').style.display = 'flex';
-  document.getElementById('driveFolderItems').style.display   = 'none';
-  document.getElementById('driveFolderEmpty').style.display   = 'none';
-  document.getElementById('btnDriveFolderDownload').style.display = 'none';
-
-  try {
-    const res = await window.electronAPI.driveListAll(drivePath);
-    const folders = res?.folders || [];
-    const files   = res?.files   || [];
-    _driveFolderFiles = files;
-
-    document.getElementById('driveFolderLoading').style.display = 'none';
-
-    if (folders.length === 0 && files.length === 0) {
-      document.getElementById('driveFolderEmpty').style.display = 'block';
-      document.getElementById('driveFolderCount').textContent   = '0 itens';
-      return;
-    }
-
-    const items = document.getElementById('driveFolderItems');
-    items.style.display     = 'flex';
-    items.style.flexDirection = 'column';
-    items.style.gap         = '2px';
-
-    // Renderiza pastas primeiro
-    const foldersHtml = folders.map(f => `
-      <div class="drive-file-item" style="cursor:pointer;"
-        data-navpath='${JSON.stringify([...drivePath, f.name]).replace(/'/g,"&apos;")}'
-        onclick="driveFolderNavToBtn(this)"
-        onmouseover="this.style.background='var(--surf2)'" onmouseout="this.style.background=''">
-        <span class="drive-file-icon">📁</span>
-        <span class="drive-file-name" style="color:var(--accent2);">${f.name}</span>
-        <span class="drive-file-size" style="color:var(--muted);">pasta</span>
-        <span class="drive-file-date"></span>
-        <span style="font-size:0.7rem;color:var(--muted);opacity:0.6;">›</span>
-      </div>`).join('');
-
-    // Renderiza arquivos
-    // Busca metadados de upload no Firebase para os arquivos listados
-    let uploadMeta = {};
-    if (files.length > 0 && window.electronAPI?.firebaseGetUploadMetaBatch) {
-      try {
-        const ids = files.map(f => f.id).filter(Boolean);
-        const metaRes = await window.electronAPI.firebaseGetUploadMetaBatch(ids);
-        uploadMeta = metaRes?.meta || {};
-      } catch(e) {}
-    }
-
-    const filesHtml = files.map((f, i) => {
-      const meta      = uploadMeta[f.id] || {};
-      const uploader  = meta.uploadedByNome || meta.uploadedBy || '';
-      const uploaderEl = uploader
-        ? `<span style="font-size:0.6rem;font-family:var(--mono);color:var(--accent);opacity:0.8;flex-shrink:0;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="Enviado por ${uploader}">👤 ${uploader}</span>`
-        : '';
-      return `
-      <div class="drive-file-item">
-        <span class="drive-file-icon">${getDriveFileIcon(f.name)}</span>
-        <span class="drive-file-name" title="${f.name}">${f.name}</span>
-        ${uploaderEl}
-        <span class="drive-file-size">${formatFileSize(f.size)}</span>
-        <span class="drive-file-date">${formatFileDate(f.modifiedTime)}</span>
-        <button class="drive-file-dl" onclick="driveDownloadArquivo(${i})" title="Baixar">⬇</button>
-        ${userMaster ? `<button class="drive-file-dl" onclick="apagarArquivoDrive(${i})" title="Apagar arquivo" style="color:var(--danger);border-color:rgba(255,77,77,0.3);" onmouseover="this.style.borderColor='var(--danger)'" onmouseout="this.style.borderColor='rgba(255,77,77,0.3)'">🗑</button>` : ''}
-      </div>`;
-    }).join('');
-
-    items.innerHTML = foldersHtml + (folders.length && files.length ? `<div style="height:1px;background:var(--border);margin:4px 0;"></div>` : '') + filesHtml;
-
-    const total = folders.length + files.length;
-    document.getElementById('driveFolderCount').textContent = `${folders.length ? folders.length + ' pasta' + (folders.length > 1 ? 's' : '') + (files.length ? ' · ' : '') : ''}${files.length ? files.length + ' arquivo' + (files.length > 1 ? 's' : '') : ''}`;
-    if (files.length > 1) document.getElementById('btnDriveFolderDownload').style.display = 'block';
-
-  } catch(e) {
-    document.getElementById('driveFolderLoading').style.display = 'none';
-    document.getElementById('driveFolderEmpty').style.display   = 'block';
-    document.getElementById('driveFolderEmpty').textContent     = '⚠️ Erro ao carregar: ' + e.message;
-  }
-}
-
-let _driveDeleteIndex = null;
-
-function apagarArquivoDrive(index) {
-  const file = _driveFolderFiles[index];
-  if (!file) return;
-  _driveDeleteIndex = index;
-  document.getElementById('driveDeleteFileName').textContent = file.name;
-  document.getElementById('driveDeleteSenha').value = '';
-  document.getElementById('driveDeleteError').textContent = '';
-  document.getElementById('modalDriveDelete').classList.add('open');
-  setTimeout(() => document.getElementById('driveDeleteSenha').focus(), 100);
-}
-
-async function confirmarApagarArquivoDrive() {
-  const senha = document.getElementById('driveDeleteSenha').value;
-  if (!senha) {
-    document.getElementById('driveDeleteError').textContent = 'Informe a senha.';
+  // Se é a pasta raiz do projeto, usa o driveFolderId salvo
+  const p = projects.find(x => x.id === projectId);
+  if (p?.driveFolderId && drivePath.length === 2) {
+    const url = `https://drive.google.com/drive/folders/${p.driveFolderId}`;
+    window.electronAPI?.openExternal(url) || window.open(url, '_blank');
     return;
   }
 
-  // Verifica senha do master
-  const ok = await window.electronAPI.authVerificarSenha(userName, senha);
-  if (!ok?.valido) {
-    document.getElementById('driveDeleteError').textContent = 'Senha incorreta.';
-    document.getElementById('driveDeleteSenha').value = '';
-    document.getElementById('driveDeleteSenha').focus();
-    return;
-  }
-
-  const file = _driveFolderFiles[_driveDeleteIndex];
-  if (!file) return;
-
-  closeModal('modalDriveDelete');
-  showToast(`🗑 Apagando ${file.name}...`);
-
-  try {
-    const res = await window.electronAPI.driveDeleteFile(file.id);
-    if (res?.success) {
-      showToast(`✓ ${file.name} apagado.`);
-      // Remove metadado do Firebase em background
-      if (file.id && window.electronAPI?.firebaseDeleteUploadMeta) {
-        window.electronAPI.firebaseDeleteUploadMeta(file.id).catch(() => {});
+  // Para subpastas — busca o ID via Drive API
+  if (window.electronAPI?.driveGetFolderId) {
+    try {
+      const res = await window.electronAPI.driveGetFolderId(drivePath);
+      if (res?.folderId) {
+        const url = `https://drive.google.com/drive/folders/${res.folderId}`;
+        window.electronAPI.openExternal(url);
+        return;
       }
-      _driveFolderFiles.splice(_driveDeleteIndex, 1);
-      await driveListarArquivos(_driveFolderPath);
-      if (_driveFolderProject) await refreshFileCounts(_driveFolderProject);
-    } else {
-      showToast(`⚠️ Erro ao apagar: ${res?.error || 'tente novamente'}`);
-    }
-  } catch(e) {
-    showToast('⚠️ Erro: ' + e.message);
+    } catch(e) {}
   }
-}
 
-async function driveDownloadArquivo(index) {
-  const file = _driveFolderFiles[index];
-  if (!file || !_driveFolderPath) return;
-  showToast(`⬇ Baixando ${file.name}...`);
-  try {
-    const res = await window.electronAPI.driveDownloadFolder(_driveFolderPath, file.name);
-    if (res?.success) showToast(`✓ ${res.message || file.name + ' salvo!'}`);
-    else showToast(`⚠️ ${res?.error || 'Erro ao baixar'}`);
-  } catch(e) {
-    showToast('⚠️ Erro: ' + e.message);
+  // Fallback — abre o Drive na pasta raiz do projeto se disponível
+  if (p?.driveFolderId) {
+    const url = `https://drive.google.com/drive/folders/${p.driveFolderId}`;
+    window.electronAPI?.openExternal(url) || window.open(url, '_blank');
+    return;
   }
+
+  // Último fallback — busca pelo nome
+  const folderName = drivePath[drivePath.length - 1];
+  const url = `https://drive.google.com/drive/search?q=${encodeURIComponent(folderName)}`;
+  window.electronAPI?.openExternal(url) || window.open(url, '_blank');
 }
-
-async function driveFolderDownloadAll() {
-  if (!_driveFolderPath || !_driveFolderFiles.length) return;
-  const folderName = _driveFolderPath[_driveFolderPath.length - 1];
-  showToast(`⬇ Preparando ZIP de ${_driveFolderFiles.length} arquivo${_driveFolderFiles.length > 1 ? 's' : ''}...`);
-  try {
-    const res = await window.electronAPI.driveDownloadFolder(_driveFolderPath, folderName);
-    if (res?.success) showToast(`✓ ${res.message}`);
-    else showToast(`⚠️ ${res?.error || 'Erro ao baixar'}`);
-  } catch(e) {
-    showToast('⚠️ Erro: ' + e.message);
-  }
-}
-
-async function driveUploadToCurrentFolder() {
-  if (!_driveFolderPath || !_driveFolderProject) return;
-  if (!await garantirOAuth()) return;
-
-  const folderName = _driveFolderPath[_driveFolderPath.length - 1];
-  const p = projects.find(x => x.id === _driveFolderProject);
-
-  // Dialog PRIMEIRO
-  const res = await window.electronAPI.uploadFilesDialog(_driveFolderPath, null, p?.driveAccountId || '');
-  if (res.canceled) return;
-
-  showUploadProgress(`☁ Enviando para ${folderName}...`);
-
-  const sucesso = (res.results || []).filter(r => r.success).length;
-  const falhou  = (res.results || []).filter(r => !r.success).length;
-
-  if (sucesso > 0) {
-    showToast(`✓ ${sucesso} arquivo${sucesso > 1 ? 's' : ''} enviado${sucesso > 1 ? 's' : ''}`);
-    await driveListarArquivos(_driveFolderPath);
-    if (_driveFolderProject) await refreshFileCounts(_driveFolderProject);
-  }
-  if (falhou > 0) showToast(`⚠️ ${falhou} arquivo${falhou > 1 ? 's' : ''} falharam.`);
-}
-
 
 function toggleFolder(row) {
   row.classList.toggle('open');
@@ -4274,21 +3828,15 @@ function uploadParaPastaBtn(e, el) {
 
 async function uploadParaPasta(e, drivePathJson, folderName, projectId, hasChildren) {
   e.stopPropagation();
-  if (_uploadInProgress) return;
 
+  // drivePathJson é um array JSON ex: ["GeoProjects","2026_01_Fazenda","Dados Brutos","GNSS_BASE"]
   let drivePath;
   try { drivePath = JSON.parse(drivePathJson); } catch(_) { drivePath = [drivePathJson]; }
 
-  // p definido no escopo principal para uso posterior
-  const p = projects.find(x => x.id === projectId);
-  if (!p) {
-    console.error('[uploadParaPasta] projeto não encontrado para id:', projectId);
-    showToast('⚠️ Projeto não encontrado. Tente fechar e abrir o card.');
-    return;
-  }
-
   // Se tem subpastas, mostra modal de seleção em vez de upload direto
   if (hasChildren) {
+    const p = projects.find(x => x.id === projectId);
+    if (!p) return;
     // Encontra os filhos desta pasta na estrutura do projeto
     function findFolder(items, name) {
       for (const item of items) {
@@ -4323,48 +3871,40 @@ async function uploadParaPasta(e, drivePathJson, folderName, projectId, hasChild
     'IBGE_PPP':             ['pdf','txt'],
     'TXT':                  ['txt','csv'],
     'TXT_PPP_CORRIGIDO':    ['txt','csv'],
-    'Aerolevantamento':     ['las','laz','tif','tiff','xyz','e57','ply','obj','pts'],
+    'Aerolevantamento':     ['las','laz','tif','tiff','xyz','e57'],
     'CAD_PRIMITIVO':        ['dwg','dxf'],
     'CAD_PROJETADO':        ['dwg','dxf'],
     'CAD_ENTREGAS':         ['dwg','dxf','pdf'],
-    'Shapefile_GPKG':       ['shp','gpkg','zip','dbf','prj','shx','geojson','csv'],
+    'Shapefile_GPKG':       ['shp','gpkg','zip','dbf','prj','shx'],
     'KMZ_KML':              ['kmz','kml'],
     'Memoriais':            ['pdf','docx','doc'],
-    'Plantas':              ['pdf','dwg','dxf'],
-    'TRT_ART_RRT':          ['pdf','docx','doc'],
+    'Plantas':              ['pdf','dwg'],
+    'TRT_ART_RRT':          ['pdf'],
     'Fotos_Registro_Campo': ['jpg','jpeg','png','heic'],
   };
 
   const exts = extMap[folderName] !== undefined ? extMap[folderName] : null;
 
-  _uploadInProgress = true;
-  try {
-    const res = await window.electronAPI.uploadFilesDialog(drivePath, exts, p?.driveAccountId || '');
-    if (res.canceled) { hideUploadProgress(false); return; }
+  showUploadProgress(`Preparando envio para ${folderName}...`);
 
-    showUploadProgress(`☁ Enviando para ${folderName}...`);
+  const res  = await window.electronAPI.uploadFilesDialog(drivePath, exts, p?.driveAccountId || '');
+  if (res.canceled) { hideUploadProgress(false); return; }
 
-    const total   = (res.results || []).length;
-    const sucesso = res.results.filter(r => r.success).length;
-    const falhou  = res.results.filter(r => !r.success);
+  const total   = (res.results || []).length;
+  const sucesso = res.results.filter(r => r.success).length;
+  const falhou  = res.results.filter(r => !r.success);
 
-    updateUploadProgress(`Enviando para ${folderName}...`, `${sucesso}/${total}`);
-    hideUploadProgress(sucesso > 0);
+  updateUploadProgress(`Enviando para ${folderName}...`, `${sucesso}/${total}`);
+  hideUploadProgress(sucesso > 0);
 
-    if (sucesso > 0) {
-      showToast(`✓ ${sucesso} arquivo${sucesso > 1 ? 's' : ''} enviado${sucesso > 1 ? 's' : ''} para ${folderName}`);
-      if (projectId) {
-        await refreshFileCounts(projectId);
-        await refreshFlowPanel(projectId);
-      }
+  if (sucesso > 0) {
+    showToast(`✓ ${sucesso} arquivo${sucesso > 1 ? 's' : ''} enviado${sucesso > 1 ? 's' : ''} para ${folderName}`);
+    if (projectId) {
+      await refreshFileCounts(projectId);
+      await refreshFlowPanel(projectId);
     }
-    falhou.forEach(f => showToast(`⚠️ ${f.file}: ${f.error}`));
-  } catch(e) {
-    hideUploadProgress(false);
-    showToast(`⚠️ Erro no upload: ${e.message}`);
-  } finally {
-    _uploadInProgress = false;
   }
+  falhou.forEach(f => showToast(`⚠️ ${f.file}: ${f.error}`));
 }
 
 // Download de pasta do Drive — arquivo único ou ZIP
@@ -5029,7 +4569,7 @@ function closeModal(id) {
 const MODAL_NO_OUTSIDE_CLOSE = new Set([
   'modalNewProject', 'modalOS', 'modalDuplicate',
   'modalCompartilhar', 'modalGeoCorretor', 'modalUsuarios',
-  'popupAdicionarUsuario', 'modalDriveFolder', 'modalDriveDelete'
+  'popupAdicionarUsuario'
 ]);
 
 // Fecha ao clicar no overlay apenas para modais simples (confirmação, obs)
