@@ -2122,18 +2122,46 @@ async function toggleOAuth() {
 // Verifica OAuth antes de fazer upload — pede autorização se necessário
 async function garantirOAuth() {
   if (!window.electronAPI?.oauthStatus) return true;
+
+  // 1. Verifica se tem token salvo
   const status = await window.electronAPI.oauthStatus();
-  if (status.authorized) return true;
-  const confirmar = confirm('Para fazer upload é necessário conectar o Google Drive.\n\nDeseja conectar agora?');
-  if (!confirmar) return false;
-  const res = await window.electronAPI.oauthAuthorize();
-  if (res.success) {
-    showToast('✅ Google Drive conectado!');
-    checkOAuthStatus();
-    return true;
+  if (!status.authorized) {
+    const confirmar = confirm('Para fazer upload é necessário conectar o Google Drive.\n\nDeseja conectar agora?');
+    if (!confirmar) return false;
+    const res = await window.electronAPI.oauthAuthorize();
+    if (res.success) {
+      showToast('✅ Google Drive conectado!');
+      checkOAuthStatus();
+      return true;
+    }
+    showToast('⚠️ Não foi possível conectar o Google Drive.');
+    return false;
   }
-  showToast('⚠️ Não foi possível conectar o Google Drive.');
-  return false;
+
+  // 2. Valida se o token realmente funciona (chamada real à API)
+  if (window.electronAPI?.oauthValidate) {
+    const validation = await window.electronAPI.oauthValidate();
+    if (!validation.valid) {
+      if (validation.reason === 'expired') {
+        showToast('⚠️ Sessão do Google Drive expirada. Reconectando...', 3000);
+      } else {
+        showToast('⚠️ Problema na conexão com o Drive. Reconectando...', 3000);
+      }
+      // Token inválido — pede reconexão
+      const confirmar = confirm('Sua sessão do Google Drive expirou.\n\nDeseja reconectar agora?');
+      if (!confirmar) return false;
+      const res = await window.electronAPI.oauthAuthorize();
+      if (res.success) {
+        showToast('✅ Google Drive reconectado!');
+        checkOAuthStatus();
+        return true;
+      }
+      showToast('⚠️ Não foi possível reconectar o Google Drive.');
+      return false;
+    }
+  }
+
+  return true;
 }
 
 // ══════════════════════════════════════
@@ -2197,14 +2225,19 @@ async function openCompartilhar(id) {
   });
 
   elegíveis.forEach(u => {
-    const isAdmin = u.role === 'admin';
-    const checked = sharedWith.includes(u.login);
+    const isAdmin    = u.role === 'admin';
+    // Admins: sempre marcados para admin normal (só master pode desmarcar)
+    const checked    = isAdmin ? true : sharedWith.includes(u.login);
+    const disabled   = isAdmin && !userMaster;
+    const cursor     = disabled ? 'default' : 'pointer';
+    const opacity    = disabled ? '0.6' : '1';
 
     container.innerHTML += `
       <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;
-        background:var(--surf2);border:1px solid var(--border);border-radius:8px;cursor:pointer;">
-        <input type="checkbox" value="${u.login}" ${checked ? 'checked' : ''}
-          style="accent-color:var(--accent);width:15px;height:15px;">
+        background:var(--surf2);border:1px solid var(--border);border-radius:8px;
+        cursor:${cursor};opacity:${opacity};">
+        <input type="checkbox" value="${u.login}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}
+          style="accent-color:var(--accent);width:15px;height:15px;cursor:${cursor};">
         <span style="flex:1;">${u.nomeExibicao || u.nome || u.login}</span>
         <span style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);">${u.login}</span>
         ${isAdmin ? '<span style="font-size:0.65rem;color:var(--accent2);">admin</span>' : ''}
@@ -2227,7 +2260,7 @@ async function salvarCompartilhamento() {
   // Inclui checkboxes marcados (ativos e desabilitados)
   // Desabilitados = admins que admin normal não pode desmarcar
   p.sharedWith = Array.from(checkboxes)
-    .filter(cb => cb.checked)
+    .filter(cb => cb.checked || cb.disabled)
     .map(cb => cb.value);
 
   await saveData();
@@ -2788,6 +2821,8 @@ function hideUploadProgress(success) {
   }, success ? 900 : 600);
 }
 
+let _uploadInProgress = false;
+
 async function executarUpload(projectId, destino) {
   const p = projects.find(x => x.id === projectId);
   if (!p) return;
@@ -2797,11 +2832,11 @@ async function executarUpload(projectId, destino) {
   // Caminho no Drive: GeoProjects / folderName / ...subpastas
   const folderPath = ['GeoProjects', p.folderName, ...destino.path];
 
-  showUploadProgress(`Preparando envio para ${destino.label}...`);
-
-  // Abre dialog e já faz upload direto para o Drive (passa driveAccountId para buscar token correto)
+  // Dialog PRIMEIRO — progress só depois da seleção
   const res = await window.electronAPI.uploadFilesDialog(folderPath, destino.exts, p.driveAccountId || '');
-  if (res.canceled) { hideUploadProgress(false); return; }
+  if (res.canceled) return;
+
+  showUploadProgress(`☁ Enviando para ${destino.label}...`);
 
   const total   = (res.results || []).length;
   const sucesso = (res.results || []).filter(r => r.success).length;
@@ -3865,30 +3900,31 @@ async function uploadParaPasta(e, drivePathJson, folderName, projectId, hasChild
 
   // Extensões permitidas por pasta
   const extMap = {
-    'GNSS_BASE':            null, // aceita tudo
+    'GNSS_BASE':            null,
     'GNSS_ROVER':           null,
     'RINEX':                ['rnx','obs','22o','23o','24o','25o','nav','zip'],
     'IBGE_PPP':             ['pdf','txt'],
     'TXT':                  ['txt','csv'],
     'TXT_PPP_CORRIGIDO':    ['txt','csv'],
-    'Aerolevantamento':     ['las','laz','tif','tiff','xyz','e57'],
+    'Aerolevantamento':     ['las','laz','tif','tiff','xyz','e57','ply','obj','pts'],
     'CAD_PRIMITIVO':        ['dwg','dxf'],
     'CAD_PROJETADO':        ['dwg','dxf'],
     'CAD_ENTREGAS':         ['dwg','dxf','pdf'],
-    'Shapefile_GPKG':       ['shp','gpkg','zip','dbf','prj','shx'],
+    'Shapefile_GPKG':       ['shp','gpkg','zip','dbf','prj','shx','geojson','csv'],
     'KMZ_KML':              ['kmz','kml'],
     'Memoriais':            ['pdf','docx','doc'],
-    'Plantas':              ['pdf','dwg'],
-    'TRT_ART_RRT':          ['pdf'],
+    'Plantas':              ['pdf','dwg','dxf'],
+    'TRT_ART_RRT':          ['pdf','docx','doc'],
     'Fotos_Registro_Campo': ['jpg','jpeg','png','heic'],
   };
 
   const exts = extMap[folderName] !== undefined ? extMap[folderName] : null;
 
-  showUploadProgress(`Preparando envio para ${folderName}...`);
-
+  // Dialog PRIMEIRO — progress só depois da seleção
   const res  = await window.electronAPI.uploadFilesDialog(drivePath, exts, p?.driveAccountId || '');
-  if (res.canceled) { hideUploadProgress(false); return; }
+  if (res.canceled) return;
+
+  showUploadProgress(`☁ Enviando para ${folderName}...`);
 
   const total   = (res.results || []).length;
   const sucesso = res.results.filter(r => r.success).length;
