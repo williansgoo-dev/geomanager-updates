@@ -3864,14 +3864,18 @@ function uploadParaPastaBtn(e, el) {
 async function uploadParaPasta(e, drivePathJson, folderName, projectId, hasChildren) {
   e.stopPropagation();
 
-  // drivePathJson é um array JSON ex: ["GeoProjects","2026_01_Fazenda","Dados Brutos","GNSS_BASE"]
   let drivePath;
   try { drivePath = JSON.parse(drivePathJson); } catch(_) { drivePath = [drivePathJson]; }
 
+  // p no escopo principal — usado tanto no bloco hasChildren quanto no upload final
+  const p = projects.find(x => x.id === projectId);
+  if (!p) {
+    showToast('⚠️ Projeto não encontrado. Feche e abra o card novamente.');
+    return;
+  }
+
   // Se tem subpastas, mostra modal de seleção em vez de upload direto
   if (hasChildren) {
-    const p = projects.find(x => x.id === projectId);
-    if (!p) return;
     // Encontra os filhos desta pasta na estrutura do projeto
     function findFolder(items, name) {
       for (const item of items) {
