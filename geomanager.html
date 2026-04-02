@@ -2451,9 +2451,8 @@ let _htmlVersao = ''; // versão do HTML instalado localmente
 async function verificarAtualizacao(manual = false) {
   const btn = document.getElementById('btnUpdate');
 
-  // Mostra "verificando..." ao clicar manualmente
   if (manual && btn) {
-    btn.textContent = '🔄';
+    btn.textContent = '⏳';
     btn.title = 'Verificando atualizações...';
     btn.style.opacity = '0.6';
     btn.disabled = true;
@@ -2461,57 +2460,85 @@ async function verificarAtualizacao(manual = false) {
 
   try {
     const res         = await window.electronAPI.firebaseGetVersao();
-    const versaoAtual = res?.versao_atual || '';
+    const versaoExe   = res?.versao_atual || '';
     const urlDownload = res?.url_download || '';
-    const notas       = res?.notas || '';
+    const notasExe    = res?.notas        || '';
+    const versaoHtml  = res?.html_versao  || '';
 
-    // Restaura botão
     if (btn) {
-      btn.textContent = '🔔';
+      btn.textContent = '🔄';
       btn.style.opacity = '';
       btn.disabled = false;
     }
 
-    if (!versaoAtual) {
+    if (!versaoExe && !versaoHtml) {
       if (manual) showToast('⚠️ Não foi possível verificar atualizações.');
       return;
     }
 
-    if (versaoAtual !== APP_VERSION) {
+    const exeDesatualizado  = versaoExe  && versaoExe  !== APP_VERSION;
+    const htmlDesatualizado = versaoHtml && versaoHtml !== _htmlVersao;
+
+    if (exeDesatualizado) {
       if (btn) {
+        btn.style.display = '';
         btn.classList.add('btn-update-badge', 'has-update');
         btn.classList.remove('checked');
-        btn.title = `🔔 Nova versão ${versaoAtual} disponível${notas ? '\n' + notas : ''}\nClique para ver`;
+        btn.title = `🔄 Nova versão ${versaoExe} disponível${notasExe ? '\n\n' + notasExe : ''}\n\nClique para baixar`;
       }
       if (manual) {
         const ir = confirm(
-          `🔔 Nova versão disponível: ${versaoAtual}\n` +
+          `🔄 Nova versão disponível: ${versaoExe}\n` +
           `Versão atual: ${APP_VERSION}\n` +
-          (notas ? `\nO que há de novo:\n${notas}\n` : '') +
+          (notasExe ? `\nO que há de novo:\n\n${notasExe}\n` : '') +
           `\nDeseja abrir a página de download?`
         );
         if (ir && urlDownload) window.electronAPI.openExternal(urlDownload);
       } else {
-        showToast(`🔔 Nova versão ${versaoAtual} disponível! Clique em 🔔 para atualizar.`);
+        showToast(`🔄 Nova versão ${versaoExe} disponível! Clique em 🔄 para atualizar.`);
+      }
+    } else if (htmlDesatualizado) {
+      if (btn) {
+        btn.style.display = '';
+        btn.classList.add('btn-update-badge', 'has-update');
+        btn.classList.remove('checked');
+        btn.title = `🔄 Interface v${versaoHtml} disponível — clique para baixar`;
+      }
+      if (manual) {
+        showToast('⬇ Baixando atualização da interface...');
+        if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+        const upd = await window.electronAPI.htmlCheckUpdate();
+        if (btn) { btn.textContent = '🔄'; btn.disabled = false; }
+        if (upd?.atualizado) {
+          _htmlVersao = upd.versao;
+          if (btn) {
+            btn.classList.remove('btn-update-badge', 'has-update');
+            btn.classList.add('checked');
+            btn.title = `✅ Interface v${upd.versao} baixada — feche e reabra para aplicar`;
+          }
+          showToast(`✅ Interface v${upd.versao} baixada! Feche e reabra o app para aplicar.`, 6000);
+        } else {
+          showToast('⚠️ Não foi possível baixar a atualização. Tente novamente.');
+        }
+      } else {
+        showToast(`🔄 Nova interface v${versaoHtml} disponível! Clique em 🔄 para baixar.`);
       }
     } else {
       if (btn) {
         btn.style.display = '';
         btn.classList.remove('btn-update-badge', 'has-update');
         btn.classList.add('checked');
-        const htmlInfo = _htmlVersao && _htmlVersao !== APP_VERSION ? ` · interface v${_htmlVersao}` : '';
-        btn.title = `GeoManager v${APP_VERSION}${htmlInfo} — você está atualizado ✅${notas ? '\nÚltima atualização: ' + notas : ''}`;
+        const versaoExibida = _htmlVersao || APP_VERSION;
+        btn.title = `GeoManager v${versaoExibida} — você está atualizado ✅`;
       }
-      // Só mostra toast se foi clique manual
       if (manual) {
         const versaoExibida = _htmlVersao || APP_VERSION;
         showToast(`✅ v${versaoExibida} — você está atualizado!`);
       }
     }
   } catch(e) {
-    // Restaura botão em caso de erro
     if (btn) {
-      btn.textContent = '🔔';
+      btn.textContent = '🔄';
       btn.style.opacity = '';
       btn.disabled = false;
     }
