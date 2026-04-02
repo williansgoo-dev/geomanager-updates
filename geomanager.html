@@ -3800,11 +3800,11 @@ function renderTree(items, depth, projectId, basePath, drivePathArr) {
             data-projectid="${projectId}"
             data-haschildren="${hasSubfolders}"
             onclick="uploadParaPastaBtn(event,this)">⬆</span>
-          ${hasFiles ? `<span class="folder-download-btn" title="Baixar arquivos"
+          <span class="folder-download-btn" title="Baixar arquivos"
             data-drivepath='${drivePathEncoded}'
             data-foldername="${item.name.replace(/"/g,'&quot;')}"
             data-filecount="${count}"
-            onclick="downloadPastaBtn(event,this)"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="14" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 15h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M8 11v2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M8 4v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M6 6.5l2 2 2-2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ''}
+            onclick="downloadPastaBtn(event,this)"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="14" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 15h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M8 11v2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M8 4v4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M6 6.5l2 2 2-2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         </div>
         <div class="tree-children">
           ${childrenHtml}
